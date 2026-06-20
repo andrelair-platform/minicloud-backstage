@@ -2,12 +2,12 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: minicloud-backstage
-  description: An example of a Backstage application.
-  # Example for optional annotations
-  # annotations:
-  #   github.com/project-slug: backstage/backstage
-  #   backstage.io/techdocs-ref: dir:.
+  description: minicloud internal developer portal — org-owned Backstage image with Authentik SSO, Kubernetes, ArgoCD and TechDocs plugins
+  annotations:
+    github.com/project-slug: andrelair-platform/minicloud-backstage
+    backstage.io/techdocs-ref: dir:.
 spec:
-  type: website
-  owner: john@example.com
-  lifecycle: experimental
+  type: service
+  lifecycle: production
+  owner: user:default/andrelair
+  system: minicloud-platform
