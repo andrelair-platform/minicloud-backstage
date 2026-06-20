@@ -33,7 +33,7 @@ auth:
         clientId: ${AUTH_OIDC_CLIENT_ID}
         clientSecret: ${AUTH_OIDC_CLIENT_SECRET}
         callbackUrl: https://backstage.10.0.0.200.nip.io/api/auth/oidc/handler/frame
-        scope: 'openid profile email'
+        additionalScopes: []
         signIn:
           resolvers:
             - resolver: emailMatchingUserEntityProfileEmail
@@ -78,6 +78,9 @@ argocd:
       instances:
         - name: minicloud
           url: https://argocd.10.0.0.200.nip.io
+
+grafana:
+  domain: https://grafana.10.0.0.200.nip.io
 
 techdocs:
   builder: 'local'
