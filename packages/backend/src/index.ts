@@ -59,6 +59,12 @@ backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 // kubernetes plugin
 backend.add(import('@backstage/plugin-kubernetes-backend'));
 
+// argocd plugin
+backend.add(import('@roadiehq/backstage-plugin-argo-cd-backend'));
+
+// oidc auth provider (used for Authentik SSO in production)
+backend.add(import('@backstage/plugin-auth-backend-module-oidc-provider'));
+
 // notifications and signals plugins
 backend.add(import('@backstage/plugin-notifications-backend'));
 backend.add(import('@backstage/plugin-signals-backend'));
