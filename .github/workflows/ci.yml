@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: harbor.10.0.0.200.nip.io
+  IMAGE_REPO: library/backstage
+  GITOPS_REPO: andrelair-platform/minicloud-gitops
+  GITOPS_VALUES: helm-values/backstage-values.yaml
+
+jobs:
+  build-and-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # Cosign keyless signing
+
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+      digest: ${{ steps.push.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute SHA
+        id: meta
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      # ── Tailscale: join the minicloud tailnet so we can reach Harbor ────────
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          version: latest
+
+      # ── Trust the minicloud self-signed CA so Docker accepts Harbor TLS ────
+      - name: Trust minicloud CA
+        run: |
+          sudo mkdir -p /etc/docker/certs.d/${{ env.REGISTRY }}
+          echo "${{ secrets.MINICLOUD_CA_CERT }}" \
+            | sudo tee /etc/docker/certs.d/${{ env.REGISTRY }}/ca.crt
+          # Also add to system trust for cosign / crane
+          echo "${{ secrets.MINICLOUD_CA_CERT }}" | sudo tee /usr/local/share/ca-certificates/minicloud-ca.crt
+          sudo update-ca-certificates
+
+      # ── Build Backstage bundles ──────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build Backstage (app + backend bundles)
+        run: |
+          yarn tsc
+          yarn build:backend
+
+      # ── Build and push image to Harbor ──────────────────────────────────────
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: admin
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push to Harbor
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/backend/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.sha }}-amd64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Security: scan + sign ────────────────────────────────────────────────
+      - name: Scan for critical CVEs (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.sha }}-amd64
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless — GitHub OIDC → Sigstore Fulcio)
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}@${{ steps.push.outputs.digest }}
+
+  bump-gitops:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout minicloud-gitops
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_TOKEN }}
+
+      - name: Import GPG signing key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Bump image tag in backstage-values.yaml
+        env:
+          SHA: ${{ needs.build-and-push.outputs.sha }}
+        run: |
+          TAG="${SHA}-amd64"
+          FILE="${{ env.GITOPS_VALUES }}"
+
+          sed -i "s|# git SHA: .* — .*|# git SHA: ${SHA} — built $(date -u '+%Y-%m-%d') by CI|" "$FILE"
+          sed -i "s|registry: .*|registry: harbor.10.0.0.200.nip.io|" "$FILE"
+          sed -i "s|repository: .*|repository: library/backstage|" "$FILE"
+          sed -i "s|tag: \"[^\"]*-amd64\"|tag: \"${TAG}\"|" "$FILE"
+
+          git add "$FILE"
+          if git diff --cached --quiet; then
+            echo "No change — already at ${TAG}"
+            exit 0
+          fi
+          git commit -S -m "ci(backstage): bump image to ${TAG}"
+          git push
