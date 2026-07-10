@@ -7,5 +7,6 @@ import { navModule } from './modules/nav';
 import { authModule } from './modules/auth';
 
 export default createApp({
-  features: [catalogPlugin, apiDocsPlugin, kubernetesPlugin, techRadarPlugin, navModule, authModule],
+  // techRadarPlugin cast: 0.7.4 built against older frontend-plugin-api missing info(), works at runtime
+  features: [catalogPlugin, apiDocsPlugin, kubernetesPlugin, techRadarPlugin as any, navModule, authModule],
 });
