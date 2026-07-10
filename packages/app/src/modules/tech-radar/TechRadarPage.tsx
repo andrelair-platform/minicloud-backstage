@@ -26,7 +26,7 @@ export function TechRadarPage() {
       .then(r => r.json())
       .then(setData)
       .catch(e => setError(String(e)));
-  }, [url]);
+  }, []);
 
   if (error) {
     return (
