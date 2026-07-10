@@ -39,6 +39,7 @@ export const authModule = createFrontendModule({
             OAuth2.create({
               discoveryApi,
               oauthRequestApi,
+              environment: 'production',
               provider: {
                 id: 'oidc',
                 title: 'Authentik',
