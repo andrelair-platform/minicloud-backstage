@@ -1,4 +1,3 @@
-import React from 'react';
 import { createFrontendModule } from '@backstage/frontend-plugin-api';
 import {
   ApiBlueprint,
@@ -51,7 +50,7 @@ export const authModule = createFrontendModule({
     }),
     SignInPageBlueprint.make({
       params: {
-        loader: async () => (props: Parameters<typeof SignInPage>[0]) => (
+        loader: async () => (props: any) => (
           <SignInPage
             {...props}
             providers={[
