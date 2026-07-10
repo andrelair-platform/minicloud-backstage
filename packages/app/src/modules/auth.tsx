@@ -3,7 +3,6 @@ import { createFrontendModule } from '@backstage/frontend-plugin-api';
 import {
   ApiBlueprint,
   createApiRef,
-  createApiFactory,
   discoveryApiRef,
   oauthRequestApiRef,
 } from '@backstage/frontend-plugin-api';
@@ -28,24 +27,26 @@ export const authModule = createFrontendModule({
   pluginId: 'app',
   extensions: [
     ApiBlueprint.make({
-      params: createApiFactory({
-        api: oidcAuthApiRef,
-        deps: {
-          discoveryApi: discoveryApiRef,
-          oauthRequestApi: oauthRequestApiRef,
-        },
-        factory: ({ discoveryApi, oauthRequestApi }) =>
-          OAuth2.create({
-            discoveryApi,
-            oauthRequestApi,
-            provider: {
-              id: 'oidc',
-              title: 'Authentik',
-              icon: () => null,
-            },
-            defaultScopes: ['openid', 'email', 'profile'],
-          }),
-      }),
+      name: 'oidc',
+      params: defineParams =>
+        defineParams({
+          api: oidcAuthApiRef,
+          deps: {
+            discoveryApi: discoveryApiRef,
+            oauthRequestApi: oauthRequestApiRef,
+          },
+          factory: ({ discoveryApi, oauthRequestApi }) =>
+            OAuth2.create({
+              discoveryApi,
+              oauthRequestApi,
+              provider: {
+                id: 'oidc',
+                title: 'Authentik',
+                icon: () => null,
+              },
+              defaultScopes: ['openid', 'email', 'profile'],
+            }),
+        }),
     }),
     SignInPageBlueprint.make({
       params: {
