@@ -11,6 +11,18 @@
 
 ---
 
+## Screenshots
+
+| Software Catalog | Tech Radar |
+|---|---|
+| ![Software Catalog](docs/screenshots/screenshot-catalog.png) | ![Tech Radar](docs/screenshots/screenshot-tech-radar.png) |
+
+| API Docs (Swagger UI) | Kubernetes live view |
+|---|---|
+| ![API Docs](docs/screenshots/screenshot-api-docs.png) | ![Kubernetes tab](docs/screenshots/screenshot-kubernetes-tab.png) |
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
