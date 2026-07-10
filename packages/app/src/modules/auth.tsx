@@ -2,6 +2,7 @@ import { createFrontendModule } from '@backstage/frontend-plugin-api';
 import {
   ApiBlueprint,
   createApiRef,
+  configApiRef,
   discoveryApiRef,
   oauthRequestApiRef,
 } from '@backstage/frontend-plugin-api';
@@ -31,11 +32,13 @@ export const authModule = createFrontendModule({
         defineParams({
           api: oidcAuthApiRef,
           deps: {
+            configApi: configApiRef,
             discoveryApi: discoveryApiRef,
             oauthRequestApi: oauthRequestApiRef,
           },
-          factory: ({ discoveryApi, oauthRequestApi }) =>
+          factory: ({ configApi, discoveryApi, oauthRequestApi }) =>
             OAuth2.create({
+              configApi,
               discoveryApi,
               oauthRequestApi,
               environment: 'production',
@@ -60,7 +63,6 @@ export const authModule = createFrontendModule({
                 message: 'Sign in using your Authentik SSO account',
                 apiRef: oidcAuthApiRef,
               },
-              'guest',
             ]}
           />
         ),
