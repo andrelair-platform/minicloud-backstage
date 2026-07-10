@@ -14,11 +14,6 @@
     "outDir": "dist-types",
     "rootDir": ".",
     "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@backstage/plugin-tech-radar/alpha": [
-        "node_modules/@backstage/plugin-tech-radar/dist/alpha.d.ts"
-      ]
-    }
+    "baseUrl": "."
   }
 }
