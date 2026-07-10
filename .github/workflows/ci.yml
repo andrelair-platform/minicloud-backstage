@@ -132,10 +132,20 @@ jobs:
           TAG="${SHA}-amd64"
           FILE="${{ env.GITOPS_VALUES }}"
 
-          sed -i "s|# git SHA: .* — .*|# git SHA: ${SHA} — built $(date -u '+%Y-%m-%d') by CI|" "$FILE"
-          sed -i "s|registry: .*|registry: harbor.10.0.0.200.nip.io|" "$FILE"
-          sed -i "s|repository: .*|repository: library/backstage|" "$FILE"
-          sed -i "s|tag: \"[^\"]*-amd64\"|tag: \"${TAG}\"|" "$FILE"
+          # Only update the backstage.image block (lines 10-15).
+          # Use python to scope the replacement — sed s|registry|… would also
+          # hit the postgresql subchart's image block further down the file.
+          python3 - "$FILE" "$TAG" "$SHA" << 'PYEOF'
+          import sys, re, datetime
+          path, tag, sha = sys.argv[1], sys.argv[2], sys.argv[3]
+          content = open(path).read()
+          today = datetime.date.today().isoformat()
+          # Comment line just above the image block
+          content = re.sub(r'# git SHA: .* — .*', f'# git SHA: {sha} — built {today} by CI', content)
+          # Only replace tag: "...-amd64" (unique — postgresql tag has no -amd64 suffix)
+          content = re.sub(r'(tag: ")[^"]*-amd64(")', rf'\g<1>{tag}\2', content)
+          open(path, 'w').write(content)
+          PYEOF
 
           git add "$FILE"
           if git diff --cached --quiet; then
