@@ -88,7 +88,7 @@ jobs:
 
       # ── Security: scan + sign ────────────────────────────────────────────────
       - name: Scan for critical CVEs (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.sha }}-amd64
           format: table
