@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Content, ContentHeader, Page, Progress } from '@backstage/core-components';
-import { configApiRef, useApi } from '@backstage/core-plugin-api';
+
+const TECH_RADAR_URL =
+  'https://raw.githubusercontent.com/andrelair-platform/minicloud-gitops/main/tech-radar.json';
 
 interface RadarEntry {
   id: string;
@@ -16,17 +18,11 @@ interface RadarQuadrant { id: string; name: string; }
 interface RadarData { quadrants: RadarQuadrant[]; rings: RadarRing[]; entries: RadarEntry[]; }
 
 export function TechRadarPage() {
-  const configApi = useApi(configApiRef);
   const [data, setData] = useState<RadarData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const url = configApi.getOptionalString('techRadar.url') ?? '';
 
   useEffect(() => {
-    if (!url) {
-      setError('techRadar.url is not configured');
-      return;
-    }
-    fetch(url)
+    fetch(TECH_RADAR_URL)
       .then(r => r.json())
       .then(setData)
       .catch(e => setError(String(e)));
