@@ -1,4 +1,3 @@
-import React from 'react';
 import TrackChangesIcon from '@material-ui/icons/TrackChanges';
 import { createFrontendPlugin, PageBlueprint } from '@backstage/frontend-plugin-api';
 
