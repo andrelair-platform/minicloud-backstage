@@ -11,3 +11,5 @@ spec:
   lifecycle: production
   owner: user:default/andrelair
   system: minicloud-platform
+  consumesApis:
+    - minicloud-plane-api
