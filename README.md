@@ -21,6 +21,10 @@
 |---|---|
 | ![API Docs](docs/screenshots/screenshot-api-docs.png) | ![Kubernetes tab](docs/screenshots/screenshot-kubernetes-tab.png) |
 
+| Software Templates | TechDocs |
+|---|---|
+| ![Software Templates](docs/screenshots/screenshot-templates.png) | ![TechDocs](docs/screenshots/screenshot-techdocs.png) |
+
 ---
 
 ## Table of Contents
