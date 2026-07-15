@@ -31,12 +31,12 @@ jobs:
         id: meta
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # ── Tailscale: join the minicloud tailnet so we can reach Harbor ────────
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v4.1.3
         with:
-          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          version: latest
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
       # ── Trust the minicloud self-signed CA so Docker accepts Harbor TLS ────
       - name: Trust minicloud CA
@@ -67,7 +67,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: admin
+          username: ${{ secrets.HARBOR_USER }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
       - uses: docker/setup-buildx-action@v3
@@ -103,9 +103,24 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM (CycloneDX JSON)
+        run: |
+          syft ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}@${{ steps.push.outputs.digest }} \
+            -o cyclonedx-json=sbom.json
+
       - name: Sign image (keyless — GitHub OIDC → Sigstore Fulcio)
         run: |
           cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}@${{ steps.push.outputs.digest }}
+
+      - name: Attach SBOM to image as OCI referrer
+        run: |
+          cosign attach sbom \
+            --sbom sbom.json \
+            --type cyclonedx \
             ${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}@${{ steps.push.outputs.digest }}
 
   bump-gitops:
