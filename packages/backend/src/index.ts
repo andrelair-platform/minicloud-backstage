@@ -72,4 +72,7 @@ backend.add(import('@backstage/plugin-signals-backend'));
 // mcp actions plugin
 backend.add(import('@backstage/plugin-mcp-actions-backend'));
 
+// custom scaffolder actions
+backend.add(import('./actions/vault'));
+
 backend.start();
