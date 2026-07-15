@@ -1,0 +1,21 @@
+{
+  "name": "@internal/plugin-minicloud-plane",
+  "version": "0.1.0",
+  "private": true,
+  "backstage": {
+    "role": "frontend-plugin"
+  },
+  "main": "src/index.ts",
+  "dependencies": {
+    "@backstage/frontend-plugin-api": "^0.17.2",
+    "@backstage/plugin-catalog-react": "^3.1.0",
+    "react": "^18.0.2"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.3"
+  },
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint"
+  }
+}

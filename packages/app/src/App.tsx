@@ -3,10 +3,11 @@ import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import apiDocsPlugin from '@backstage/plugin-api-docs/alpha';
 import kubernetesPlugin from '@backstage/plugin-kubernetes/alpha';
 import searchPlugin from '@backstage/plugin-search/alpha';
+import minicloudPlanePlugin from '@internal/plugin-minicloud-plane';
 import { techRadarPlugin } from './modules/tech-radar';
 import { navModule } from './modules/nav';
 import { authModule } from './modules/auth';
 
 export default createApp({
-  features: [catalogPlugin, apiDocsPlugin, kubernetesPlugin, searchPlugin, techRadarPlugin, navModule, authModule],
+  features: [catalogPlugin, apiDocsPlugin, kubernetesPlugin, searchPlugin, minicloudPlanePlugin, techRadarPlugin, navModule, authModule],
 });

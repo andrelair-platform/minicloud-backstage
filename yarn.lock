@@ -5615,6 +5615,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@internal/plugin-minicloud-plane@npm:*, @internal/plugin-minicloud-plane@workspace:plugins/minicloud-plane":
+  version: 0.0.0-use.local
+  resolution: "@internal/plugin-minicloud-plane@workspace:plugins/minicloud-plane"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.3"
+    "@backstage/frontend-plugin-api": "npm:^0.17.2"
+    "@backstage/plugin-catalog-react": "npm:^3.1.0"
+    react: "npm:^18.0.2"
+  languageName: unknown
+  linkType: soft
+
 "@internationalized/date@npm:^3.12.0, @internationalized/date@npm:^3.12.1, @internationalized/date@npm:^3.12.2":
   version: 3.12.2
   resolution: "@internationalized/date@npm:3.12.2"
@@ -13055,6 +13066,7 @@ __metadata:
     "@backstage/plugin-techdocs-module-addons-contrib": "npm:^1.1.37"
     "@backstage/plugin-user-settings": "npm:^0.9.4"
     "@backstage/ui": "npm:^0.16.0"
+    "@internal/plugin-minicloud-plane": "npm:*"
     "@k-phoen/backstage-plugin-grafana": "npm:^0.1.22"
     "@material-ui/core": "npm:^4.12.2"
     "@material-ui/icons": "npm:^4.9.1"

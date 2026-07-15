@@ -79,6 +79,12 @@ argocd:
         - name: minicloud
           url: https://argocd.10.0.0.200.nip.io
 
+proxy:
+  endpoints:
+    '/minicloud-plane':
+      target: 'http://minicloud-plane.minicloud-plane-dev.svc.cluster.local:8080'
+      changeOrigin: true
+
 grafana:
   domain: https://grafana.10.0.0.200.nip.io
 
