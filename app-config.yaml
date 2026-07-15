@@ -1,3 +1,20 @@
+# ============================================================
+# LOCAL DEVELOPMENT ONLY — NOT LOADED IN PRODUCTION
+#
+# Production config lives in:
+#   minicloud-gitops/helm-values/backstage-values.yaml  (appConfig section)
+#
+# The Helm chart renders that into ConfigMap backstage-app-config and
+# passes it via --config at startup. This file is never loaded in
+# production because the Helm chart overrides the Dockerfile CMD and
+# drops the --config flags that would reference this file.
+#
+# To add catalog locations, proxy endpoints, or any production config:
+#   → Edit minicloud-gitops/helm-values/backstage-values.yaml
+#   → Commit + push → ArgoCD auto-syncs the ConfigMap
+#   → kubectl rollout restart deployment/backstage -n backstage
+# ============================================================
+
 app:
   title: Scaffolded Backstage App
   baseUrl: http://localhost:3000
