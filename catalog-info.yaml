@@ -1,3 +1,4 @@
+---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -6,6 +7,17 @@ metadata:
   annotations:
     github.com/project-slug: andrelair-platform/minicloud-backstage
     backstage.io/techdocs-ref: dir:.
+    argocd/app-name: backstage
+    backstage.io/kubernetes-id: backstage
+  tags:
+    - backstage
+    - idp
+    - nodejs
+    - level2
+  links:
+    - url: https://backstage.devandre.sbs
+      title: Backstage (live)
+      icon: web
 spec:
   type: service
   lifecycle: production
@@ -13,3 +25,5 @@ spec:
   system: minicloud-platform
   consumesApis:
     - minicloud-plane-api
+    - markitdown-proxy-api
+    - rag-ingest-api
