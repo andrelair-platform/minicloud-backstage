@@ -6,6 +6,7 @@ metadata:
   annotations:
     github.com/project-slug: andrelair-platform/${{ values.name }}
     backstage.io/kubernetes-id: ${{ values.name }}
+    backstage.io/techdocs-ref: dir:.
     argocd/app-name: ${{ values.name }}-dev
   links:
     - url: https://argocd.devandre.sbs/applications/${{ values.name }}-dev

@@ -1,0 +1,12 @@
+site_name: minicloud-backstage
+site_description: minicloud internal developer portal — Backstage with Authentik SSO, Kubernetes, ArgoCD, TechDocs, and Software Templates
+
+docs_dir: docs
+nav:
+  - Overview: index.md
+  - Architecture: architecture.md
+  - CI/CD Pipeline: ci.md
+  - Custom Plugins: plugins.md
+
+plugins:
+  - techdocs-core
