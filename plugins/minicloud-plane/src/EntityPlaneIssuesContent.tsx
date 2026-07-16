@@ -44,20 +44,8 @@ export function EntityPlaneIssuesContent() {
       .finally(() => setLoading(false));
   }, [planeApi, projectRef]);
 
-  if (!projectRef) {
-    return (
-      <div style={{ padding: 24 }}>
-        <p>
-          Add the <code>{ANNOTATION}</code> annotation to this entity's{' '}
-          <code>catalog-info.yaml</code> to link a Plane project:
-        </p>
-        <pre style={{ background: '#f5f5f5', padding: 12, borderRadius: 4 }}>
-          {`metadata:\n  annotations:\n    ${ANNOTATION}: "YOUR_PROJECT_IDENTIFIER"`}
-        </pre>
-        <p>Value can be the project UUID or its short identifier (e.g. <code>MINI</code>).</p>
-      </div>
-    );
-  }
+  // Tab is filtered at plugin registration level — this guard is a safety net only.
+  if (!projectRef) return null;
 
   if (loading) {
     return <div style={{ padding: 24 }}>Loading Plane issues…</div>;
