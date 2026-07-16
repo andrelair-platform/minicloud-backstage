@@ -33,7 +33,6 @@
 - [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
 - [Configuration](#configuration)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Software Templates](#software-templates)
@@ -140,51 +139,6 @@ docker build -f packages/backend/Dockerfile -t backstage:local .
 ```
 
 > **Note:** The CI pipeline handles image builds automatically on push to `main`. Manual builds are only needed for local testing.
-
----
-
-## Project Structure
-
-```
-minicloud-backstage/
-├── packages/
-│   ├── app/                          # React frontend
-│   │   └── src/
-│   │       ├── App.tsx               # createApp() — registers all FrontendFeature plugins
-│   │       └── modules/
-│   │           ├── auth.tsx          # SignInPageBlueprint (Authentik OIDC)
-│   │           ├── nav/
-│   │           │   ├── Sidebar.tsx   # NavContentBlueprint — layout + Tech Radar link
-│   │           │   └── SidebarLogo.tsx
-│   │           └── tech-radar/
-│   │               ├── index.tsx     # createFrontendPlugin — registers /tech-radar route
-│   │               └── TechRadarPage.tsx  # Fetches tech-radar.json, renders 4-quadrant grid
-│   └── backend/
-│       └── src/
-│           ├── index.ts              # Backend entry point
-│           └── plugins/              # Backend plugin wiring
-├── plugins/
-│   └── minicloud-plane/              # Custom plugin — Plane Issues tab per catalog entity
-│       └── src/
-│           ├── plugin.ts             # createFrontendPlugin — registers EntityPlaneIssuesContent
-│           └── components/
-├── templates/
-│   ├── go-service/                   # Golden-path template for new Go microservices
-│   │   ├── template.yaml             # Scaffolder template definition
-│   │   └── skeleton/                 # Service + gitops directory trees
-│   └── custom-image/                 # Template for custom Docker images (CA cert pattern)
-│       ├── template.yaml
-│       └── skeleton/                 # Dockerfile + CI skeleton
-├── docs/                             # TechDocs source (MkDocs)
-├── mkdocs.yml                        # TechDocs config for this repo's own docs
-├── app-config.yaml                   # Local development config (never loaded in prod)
-├── catalog-info.yaml                 # Backstage self-registration entity
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                    # Build → push → sign → SBOM → gitops bump
-│       └── release.yml               # Semver tagging workflow
-└── playwright.config.ts              # E2E test config
-```
 
 ---
 
