@@ -74,5 +74,6 @@ backend.add(import('@backstage/plugin-mcp-actions-backend'));
 
 // custom scaffolder actions
 backend.add(import('./actions/vault'));
+backend.add(import('./actions/onboard'));
 
 backend.start();
