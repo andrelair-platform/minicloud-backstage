@@ -143,6 +143,7 @@ jobs:
       - name: Bump image tag in backstage-values.yaml
         env:
           SHA: ${{ needs.build-and-push.outputs.sha }}
+          GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
         run: |
           TAG="${SHA}-amd64"
           FILE="${{ env.GITOPS_VALUES }}"
@@ -167,5 +168,14 @@ jobs:
             echo "No change — already at ${TAG}"
             exit 0
           fi
+          BRANCH="ci/backstage-bump-${SHA}"
+          git checkout -b "${BRANCH}"
           git commit -S -m "ci(backstage): bump image to ${TAG}"
-          git push
+          git push origin "${BRANCH}"
+          gh pr create \
+            --repo "${{ env.GITOPS_REPO }}" \
+            --title "ci(backstage): bump image to ${TAG}" \
+            --base main \
+            --head "${BRANCH}" \
+            --body "Automated image tag bump from CI run ${{ github.run_id }}." \
+          | xargs gh pr merge --merge --delete-branch
