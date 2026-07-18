@@ -1,0 +1,109 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: onboard-employee
+  title: Onboard New Employee
+  description: >
+    Provisions an Authentik SSO account and a devandre.sbs email mailbox for a
+    new team member. Generates a secure temporary password shown at the end.
+  tags:
+    - onboarding
+    - admin
+    - employee
+spec:
+  owner: group:default/platform
+  type: onboarding
+
+  parameters:
+    - title: Employee Information
+      required:
+        - firstName
+        - lastName
+        - username
+        - personalEmail
+        - role
+        - department
+      properties:
+        firstName:
+          title: First Name
+          type: string
+          description: "e.g. Andre"
+          ui:autofocus: true
+        lastName:
+          title: Last Name
+          type: string
+          description: "e.g. Kanmegne"
+        username:
+          title: Platform Username
+          type: string
+          description: >
+            Lowercase only, no spaces. Becomes username@devandre.sbs and the
+            SSO login handle. Convention: lastname + first initial (e.g. kanmegnea).
+          pattern: '^[a-z0-9._-]+$'
+          ui:help: "Must be lowercase letters, digits, dots, hyphens, or underscores only."
+        personalEmail:
+          title: Personal Email
+          type: string
+          format: email
+          description: "Employee's personal address — used for their Authentik SSO account."
+        role:
+          title: Job Title / Role
+          type: string
+          description: "e.g. Platform Engineer, Solution Architect, Data Analyst"
+        department:
+          title: Department
+          type: string
+          enum:
+            - Engineering
+            - Product
+            - Operations
+            - Consulting
+            - Finance
+            - HR
+        startDate:
+          title: Start Date
+          type: string
+          format: date
+          description: "For reference — does not affect provisioning timing."
+
+  steps:
+    - id: provision
+      name: Provision SSO account and mailbox
+      action: minicloud:onboard:employee
+      input:
+        firstName: ${{ parameters.firstName }}
+        lastName: ${{ parameters.lastName }}
+        username: ${{ parameters.username }}
+        personalEmail: ${{ parameters.personalEmail }}
+        role: ${{ parameters.role }}
+        department: ${{ parameters.department }}
+
+  output:
+    links:
+      - title: Verify in Authentik admin
+        url: https://auth.devandre.sbs/if/admin/#/identity/users
+      - title: Stalwart mail server
+        url: https://mail.devandre.sbs
+    text:
+      - title: Onboarding Summary
+        content: |
+          ## ${{ parameters.firstName }} ${{ parameters.lastName }} is provisioned
+
+          | Field | Value |
+          |---|---|
+          | **SSO username** | `${{ parameters.username }}` |
+          | **SSO login email** | `${{ parameters.personalEmail }}` |
+          | **Platform email** | `${{ steps.provision.output.password && parameters.username }}@devandre.sbs` |
+          | **Temporary password** | `${{ steps.provision.output.password }}` |
+          | **Department** | ${{ parameters.department }} |
+          | **Role** | ${{ parameters.role }} |
+
+          **What was provisioned:**
+          - Authentik SSO account — access to all platform apps (Nextcloud, Backstage, Grafana, ArgoCD, Plane, Jitsi, Element)
+          - Email mailbox `${{ parameters.username }}@devandre.sbs` on Stalwart
+
+          **Next steps for the employee:**
+          1. Share the temporary password securely (e.g. via Vaultwarden send)
+          2. They login at https://auth.devandre.sbs with their personal email and the temporary password
+          3. They change password immediately on first login
+          4. In Nextcloud Mail, configure IMAP `stalwart.mail.svc.cluster.local:143` with username `${{ parameters.username }}`
