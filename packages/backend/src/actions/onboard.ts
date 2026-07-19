@@ -162,7 +162,13 @@ const onboardEmployeeAction = createTemplateAction<{
         email: personalEmail,
         is_active: true,
         type: 'internal',
-        attributes: { role, department },
+        // goauthentik.io/user:require-password-change forces a password
+        // reset flow on the employee's first SSO login.
+        attributes: {
+          role,
+          department,
+          'goauthentik.io/user:require-password-change': true,
+        },
       }),
     });
     if (!createRes.ok) {
