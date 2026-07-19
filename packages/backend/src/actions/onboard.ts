@@ -9,6 +9,8 @@ const STALWART_URL =
   process.env.STALWART_URL ?? 'http://stalwart.mail.svc.cluster.local:8080';
 const MAIL_DOMAIN = process.env.MAIL_DOMAIN ?? 'devandre.sbs';
 
+const JMAP_USING = ['urn:ietf:params:jmap:core', 'urn:stalwart:jmap'];
+
 function generatePassword(length = 20): string {
   const chars =
     'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
@@ -37,6 +39,31 @@ function stalwartHeaders(): Record<string, string> {
   };
 }
 
+async function jmapCall(methodCalls: any[]): Promise<any[]> {
+  const res = await fetch(`${STALWART_URL}/jmap/`, {
+    method: 'POST',
+    headers: stalwartHeaders(),
+    body: JSON.stringify({ using: JMAP_USING, methodCalls }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Stalwart JMAP (${res.status}): ${err}`);
+  }
+  return (await res.json()).methodResponses;
+}
+
+// Fetches the Stalwart domain ID for MAIL_DOMAIN dynamically — avoids
+// hardcoding an ID that may change if the Longhorn PVC is ever recreated.
+async function getDomainId(): Promise<string> {
+  const responses = await jmapCall([['x:Domain/get', { ids: null }, '0']]);
+  const [, result] = responses[0];
+  const domain = (result.list as Array<{ id: string; name: string }>)?.find(
+    d => d.name === MAIL_DOMAIN,
+  );
+  if (!domain) throw new Error(`Domain "${MAIL_DOMAIN}" not found in Stalwart`);
+  return domain.id;
+}
+
 const onboardEmployeeAction = createTemplateAction<{
   firstName: string;
   lastName: string;
@@ -47,7 +74,7 @@ const onboardEmployeeAction = createTemplateAction<{
 }>({
   id: 'minicloud:onboard:employee',
   description:
-    'Creates an Authentik SSO account and Stalwart mailbox for a new employee. Outputs the generated temporary password.',
+    'Creates a Stalwart mailbox (email = primary identity) then an Authentik SSO account for a new employee.',
   schema: {
     input: {
       type: 'object',
@@ -90,7 +117,41 @@ const onboardEmployeeAction = createTemplateAction<{
     const password = generatePassword();
     const displayName = `${firstName} ${lastName}`;
 
-    // ── 1. Create Authentik user ──────────────────────────────────────────
+    // ── 1. Resolve Stalwart domain ID ─────────────────────────────────────
+    ctx.logger.info(`[stalwart] Resolving domain ID for "${MAIL_DOMAIN}"`);
+    const domainId = await getDomainId();
+    ctx.logger.info(`[stalwart] Domain ID: ${domainId}`);
+
+    // ── 2. Create Stalwart mailbox — email is the primary identity ─────────
+    // Uses JMAP x:Account/set (Stalwart v0.16+). Must succeed before Authentik
+    // is touched so there are no orphan SSO accounts without a mailbox.
+    ctx.logger.info(`[stalwart] Creating mailbox: ${platformEmail}`);
+    const mailResponses = await jmapCall([
+      [
+        'x:Account/set',
+        {
+          create: {
+            u1: {
+              '@type': 'User',
+              name: username,
+              domainId,
+              description: displayName,
+              credentials: { '0': { '@type': 'Password', secret: password } },
+            },
+          },
+        },
+        '0',
+      ],
+    ]);
+    const mailResult = mailResponses[0][1];
+    if (!mailResult.created?.u1) {
+      throw new Error(
+        `Stalwart mailbox creation failed: ${JSON.stringify(mailResult.notCreated)}`,
+      );
+    }
+    ctx.logger.info(`[stalwart] Mailbox created: ${platformEmail}`);
+
+    // ── 3. Create Authentik user ──────────────────────────────────────────
     ctx.logger.info(`[authentik] Creating user: ${username}`);
     const createRes = await fetch(`${AUTHENTIK_URL}/api/v3/core/users/`, {
       method: 'POST',
@@ -113,7 +174,7 @@ const onboardEmployeeAction = createTemplateAction<{
     const user = (await createRes.json()) as { pk: number };
     ctx.logger.info(`[authentik] User created pk=${user.pk}`);
 
-    // ── 2. Set initial password ───────────────────────────────────────────
+    // ── 4. Set Authentik password (same temp password as mailbox) ─────────
     const pwRes = await fetch(
       `${AUTHENTIK_URL}/api/v3/core/users/${user.pk}/set_password/`,
       {
@@ -130,7 +191,7 @@ const onboardEmployeeAction = createTemplateAction<{
     }
     ctx.logger.info('[authentik] Password set');
 
-    // ── 3. Add to department group (create group if it does not exist) ─────
+    // ── 5. Add to department group (create group if it does not exist) ─────
     const groupsRes = await fetch(
       `${AUTHENTIK_URL}/api/v3/core/groups/?name=${encodeURIComponent(department)}`,
       { headers: authentikHeaders() },
@@ -143,11 +204,14 @@ const onboardEmployeeAction = createTemplateAction<{
       groupPk = groupsData.results[0].pk;
       ctx.logger.info(`[authentik] Found group "${department}" pk=${groupPk}`);
     } else {
-      const createGroupRes = await fetch(`${AUTHENTIK_URL}/api/v3/core/groups/`, {
-        method: 'POST',
-        headers: authentikHeaders(),
-        body: JSON.stringify({ name: department }),
-      });
+      const createGroupRes = await fetch(
+        `${AUTHENTIK_URL}/api/v3/core/groups/`,
+        {
+          method: 'POST',
+          headers: authentikHeaders(),
+          body: JSON.stringify({ name: department }),
+        },
+      );
       if (!createGroupRes.ok) {
         const err = await createGroupRes.text();
         throw new Error(`Authentik group creation failed: ${err}`);
@@ -158,37 +222,12 @@ const onboardEmployeeAction = createTemplateAction<{
         `[authentik] Created group "${department}" pk=${groupPk}`,
       );
     }
-    await fetch(
-      `${AUTHENTIK_URL}/api/v3/core/groups/${groupPk}/add_user/`,
-      {
-        method: 'POST',
-        headers: authentikHeaders(),
-        body: JSON.stringify({ pk: user.pk }),
-      },
-    );
-    ctx.logger.info(`[authentik] User added to group "${department}"`);
-
-    // ── 4. Create Stalwart mailbox ────────────────────────────────────────
-    ctx.logger.info(`[stalwart] Creating mailbox: ${platformEmail}`);
-    const mailRes = await fetch(`${STALWART_URL}/api/principal`, {
+    await fetch(`${AUTHENTIK_URL}/api/v3/core/groups/${groupPk}/add_user/`, {
       method: 'POST',
-      headers: stalwartHeaders(),
-      body: JSON.stringify({
-        type: 'individual',
-        name: username,
-        description: displayName,
-        quota: 5000,
-        emails: [platformEmail],
-        secrets: [password],
-      }),
+      headers: authentikHeaders(),
+      body: JSON.stringify({ pk: user.pk }),
     });
-    if (!mailRes.ok) {
-      const err = await mailRes.text();
-      throw new Error(
-        `Stalwart mailbox creation failed (${mailRes.status}): ${err}`,
-      );
-    }
-    ctx.logger.info(`[stalwart] Mailbox created: ${platformEmail}`);
+    ctx.logger.info(`[authentik] User added to group "${department}"`);
 
     ctx.output('password', password);
     ctx.output('platformEmail', platformEmail);
