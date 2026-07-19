@@ -54,12 +54,21 @@ spec:
           title: Department
           type: string
           enum:
-            - Engineering
-            - Product
-            - Operations
-            - Consulting
+            - Direction IT / SI
+            - Direction Cybersécurité
+            - Direction Data & Analytics
+            - Direction Transformation
+            - Actuariat
+            - Souscription
+            - Sinistres
             - Finance
-            - HR
+            - Réassurance
+            - Juridique
+            - Opérations
+            - Audit
+            - Direction Commercial
+            - RH
+            - Services Généraux
         startDate:
           title: Start Date
           type: string
