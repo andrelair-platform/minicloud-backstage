@@ -7,6 +7,25 @@
  */
 
 import { createBackend } from '@backstage/backend-defaults';
+import * as http from 'http';
+import * as promClient from 'prom-client';
+
+// Expose Prometheus metrics on port 9464 (separate from the Backstage SPA port 7007
+// to avoid the app-backend catch-all intercepting /metrics with SPA HTML).
+// prom-client is a transitive dep already used by catalog-backend and scaffolder-backend.
+promClient.collectDefaultMetrics();
+http
+  .createServer(async (req, res) => {
+    if (req.url === '/metrics') {
+      const body = await promClient.register.metrics();
+      res.writeHead(200, { 'Content-Type': promClient.register.contentType });
+      res.end(body);
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  })
+  .listen(9464);
 
 const backend = createBackend();
 
