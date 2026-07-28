@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+
+  "timezone": "Europe/Paris",
+  "schedule": ["every weekend"],
+  "labels": ["dependencies", "renovate"],
+  "assignees": ["AndreLiar"],
+  "prConcurrentLimit": 3,
+  "commitMessagePrefix": "chore(deps):",
+
+  "enabledManagers": ["dockerfile", "npm"],
+
+  "packageRules": [
+    {
+      "description": "Group all Node minor/patch updates — Backstage monorepo has many packages",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm dependencies",
+      "automerge": false
+    },
+    {
+      "description": "Major Node package updates need manual review — API breaks between Backstage major versions",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "renovate", "major", "manual-review-required"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Dockerfile base image updates (node:24-trixie-slim etc.)",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "base images",
+      "automerge": false
+    },
+    {
+      "description": "Major base image version bumps — node:24 → node:26 etc.",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "renovate", "major", "manual-review-required"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
