@@ -1,0 +1,193 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: bmad-sprint
+  title: New BMAD Sprint
+  description: >
+    Scaffolds a BMAD sprint story directory in minicloud-gitops and opens a PR.
+    On merge, GitHub Actions automatically creates the stories as GitHub Issues
+    on platform-backlog, attached to the correct milestone and project board.
+  tags:
+    - bmad
+    - agile
+    - sprint
+    - project-management
+spec:
+  owner: group:default/platform
+  type: documentation
+
+  parameters:
+    - title: Sprint Identity
+      required:
+        - project_code
+        - milestone_slug
+        - milestone_title
+      properties:
+        project_code:
+          title: Project Code
+          type: string
+          description: >
+            Short project identifier — becomes the directory name under bmad/stories/.
+            Use kebab-case, no spaces (e.g. cert-1, claims-service, portal).
+          pattern: '^[a-z][a-z0-9-]{1,29}$'
+          ui:autofocus: true
+          examples:
+            - cert-1
+            - claims-service
+            - ai-assistant
+            - ktayl-portal
+        milestone_slug:
+          title: Milestone Slug
+          type: string
+          description: >
+            Short slug for the sprint/milestone directory (e.g. m1-m2, m3-m5, sprint-1).
+          pattern: '^[a-z][a-z0-9-]{1,19}$'
+          examples:
+            - m1-m2
+            - m3-m5
+            - sprint-1
+        milestone_title:
+          title: GitHub Milestone Title
+          type: string
+          description: >
+            Exact title of the GitHub Milestone on platform-backlog. Must match
+            character-for-character (the bridge script uses this for exact matching).
+          examples:
+            - "CERT-1 M1-M2 — ktayl-policy-service (Go)"
+            - "CERT-1 M3-M5 — ktayl-claims-service (Java)"
+        sprint_description:
+          title: Sprint Description
+          type: string
+          description: One-line description of what this sprint delivers.
+          default: ""
+
+    - title: Tech Stack
+      required:
+        - tech_stack
+      properties:
+        tech_stack:
+          title: Primary Technology
+          type: string
+          description: Drives the DoD checklist in generated story files.
+          default: go
+          enum:
+            - go
+            - java-spring
+            - python
+            - typescript
+          enumNames:
+            - Go (golangci-lint + go test)
+            - Java Spring Boot (checkstyle + JUnit 5)
+            - Python (ruff + pytest)
+            - TypeScript (eslint + vitest / Playwright)
+        story_count:
+          title: Number of Story Stubs to Generate
+          type: integer
+          description: How many skeleton story files to scaffold (you will customise them).
+          default: 5
+          minimum: 1
+          maximum: 15
+
+    - title: Backlog Settings
+      properties:
+        backlog_repo:
+          title: Backlog Repository
+          type: string
+          description: GitHub repo where issues will be created.
+          default: andrelair-platform/platform-backlog
+        project_number:
+          title: GitHub Project Number
+          type: integer
+          description: GitHub Projects board number (1 = minicloud platform roadmap).
+          default: 1
+
+  steps:
+    - id: fetch-overview
+      name: Generate sprint overview
+      action: fetch:template
+      input:
+        url: ./skeleton/overview
+        targetPath: ./bmad/stories/${{ parameters.project_code }}/${{ parameters.milestone_slug }}
+        values:
+          project_code:       ${{ parameters.project_code }}
+          milestone_slug:     ${{ parameters.milestone_slug }}
+          milestone_title:    ${{ parameters.milestone_title }}
+          sprint_description: ${{ parameters.sprint_description }}
+          tech_stack:         ${{ parameters.tech_stack }}
+          backlog_repo:       ${{ parameters.backlog_repo }}
+          project_number:     ${{ parameters.project_number }}
+
+    - id: fetch-stories
+      name: Generate story stubs
+      action: fetch:template
+      input:
+        url: ./skeleton/stories/${{ parameters.tech_stack }}
+        targetPath: ./bmad/stories/${{ parameters.project_code }}/${{ parameters.milestone_slug }}
+        values:
+          project_code:    ${{ parameters.project_code }}
+          milestone_slug:  ${{ parameters.milestone_slug }}
+          milestone_title: ${{ parameters.milestone_title }}
+          tech_stack:      ${{ parameters.tech_stack }}
+
+    - id: gitops-pr
+      name: Open PR on minicloud-gitops
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=andrelair-platform&repo=minicloud-gitops
+        title: "feat(bmad): ${{ parameters.project_code }}/${{ parameters.milestone_slug }} — sprint story stubs"
+        description: |
+          ## Sprint: ${{ parameters.milestone_title }}
+
+          **Project:** `${{ parameters.project_code }}` · **Milestone:** `${{ parameters.milestone_slug }}`
+          **Tech stack:** ${{ parameters.tech_stack }}
+          ${{ parameters.sprint_description }}
+
+          ### Generated files
+
+          `bmad/stories/${{ parameters.project_code }}/${{ parameters.milestone_slug }}/`
+          - `SPRINT-OVERVIEW.md` — sprint manifest
+          - `S001-*.md` … `S${{ parameters.story_count }}-*.md` — story stubs (customise before merging)
+
+          ### What happens on merge
+
+          `.github/workflows/bmad-sync.yml` will fire and run `bmad-to-github.sh`
+          for the changed directory. All story files will become GitHub Issues on
+          `${{ parameters.backlog_repo }}`, attached to milestone
+          **"${{ parameters.milestone_title }}"** and added to project board #${{ parameters.project_number }}.
+
+          ### Before merging
+
+          - [ ] Review and customise each story's Acceptance Criteria
+          - [ ] Add Technical Notes for complex stories
+          - [ ] Verify milestone **"${{ parameters.milestone_title }}"** exists on `${{ parameters.backlog_repo }}`
+          - [ ] Adjust labels in frontmatter if needed
+        branchName: bmad/${{ parameters.project_code }}-${{ parameters.milestone_slug }}
+        sourcePath: ./bmad
+        targetPath: bmad
+        gitCommitMessage: "feat(bmad): ${{ parameters.project_code }}/${{ parameters.milestone_slug }} sprint stubs"
+        gitAuthorName: AndreLiar
+        gitAuthorEmail: andrelaurelyvan.kanmegnetabouguie@ynov.com
+
+  output:
+    links:
+      - title: GitOps PR
+        url: ${{ steps['gitops-pr'].output.remoteUrl }}
+      - title: platform-backlog (milestones)
+        url: https://github.com/andrelair-platform/platform-backlog/milestones
+    text:
+      - title: Next steps
+        content: |
+          ### Before merging the PR
+
+          1. **Customise ACs** — open each `S00N-*.md` and fill in domain-specific Acceptance Criteria.
+          2. **Verify milestone** — confirm **"${{ parameters.milestone_title }}"** exists on
+             `${{ parameters.backlog_repo }}` (create it with `gh milestone create` if not).
+          3. Merge the PR → GitHub Action creates all issues automatically.
+
+          ### After merge
+
+          Issues appear on `${{ parameters.backlog_repo }}` under milestone
+          **"${{ parameters.milestone_title }}"** and on the project board.
+
+          To add more stories later, create `SNNN-slug.md` files in the same directory,
+          commit to `main`, and the sync action fires again (existing issues are skipped).
