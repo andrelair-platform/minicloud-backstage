@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/andrelair-platform/minicloud-backstage/compare/minicloud-backstage-v0.1.1...minicloud-backstage-v0.1.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* **website:** correct sidebars.ts brace syntax ([da573af](https://github.com/andrelair-platform/minicloud-backstage/commit/da573af025a7787c8dca8bda74d6c451f4936e44))
+
 ## [0.1.1](https://github.com/andrelair-platform/minicloud-backstage/compare/minicloud-backstage-v0.1.0...minicloud-backstage-v0.1.1) (2026-08-14)
 
 
