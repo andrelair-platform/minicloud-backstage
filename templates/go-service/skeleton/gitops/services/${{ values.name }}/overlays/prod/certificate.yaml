@@ -5,8 +5,12 @@ metadata:
 spec:
   secretName: ${{ values.name }}-tls
   issuerRef:
-    name: minicloud-ca-issuer
+    name: minicloud-ca
     kind: ClusterIssuer
+  # Vault PKI role `cert-manager` requires EC keys (RSA → sign 400 "role requires keys of type ec")
+  privateKey:
+    algorithm: ECDSA
+    size: 256
   dnsNames:
     - ${{ values.name }}.devandre.sbs
     - ${{ values.name }}.10.0.0.200.nip.io
