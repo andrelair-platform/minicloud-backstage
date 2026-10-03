@@ -7,9 +7,10 @@ import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
 import techdocsPlugin from '@backstage/plugin-techdocs/alpha';
 import minicloudPlanePlugin from '@internal/plugin-minicloud-plane';
 import { techRadarPlugin } from './modules/tech-radar';
+import { governancePlugin } from './modules/governance';
 import { navModule } from './modules/nav';
 import { authModule } from './modules/auth';
 
 export default createApp({
-  features: [catalogPlugin, apiDocsPlugin, kubernetesPlugin, searchPlugin, scaffolderPlugin, techdocsPlugin, minicloudPlanePlugin, techRadarPlugin, navModule, authModule],
+  features: [catalogPlugin, apiDocsPlugin, kubernetesPlugin, searchPlugin, scaffolderPlugin, techdocsPlugin, minicloudPlanePlugin, techRadarPlugin, governancePlugin, navModule, authModule],
 });
