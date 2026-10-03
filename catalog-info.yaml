@@ -9,6 +9,14 @@ metadata:
     backstage.io/techdocs-ref: dir:.
     argocd/app-name: backstage
     backstage.io/kubernetes-id: backstage
+    # Capability-registry governance columns (§8) — ICT/app-security governance (DORA, family 11).
+    governance.ktayl-solution/applicable-policy: Politique gouvernance ICT (DORA)|https://intranet.devandre.sbs/books/it-security-dora-cadre-de-gouvernance/page/01-politique-policy
+    governance.ktayl-solution/applicable-standard: Standard sécurité applicative|https://intranet.devandre.sbs/books/it-security-dora-cadre-de-gouvernance/page/02-standard
+    governance.ktayl-solution/applicable-guideline: Directive IDP / catalogue de capacités|https://intranet.devandre.sbs/books/it-security-dora-cadre-de-gouvernance/page/03-directive-guideline
+    governance.ktayl-solution/applicable-procedure: Procédure de release image|https://intranet.devandre.sbs/books/it-security-dora-cadre-de-gouvernance/page/04-procedure
+    governance.ktayl-solution/required-controls: SSO Authentik · image signée cosign · scan Trivy · PR + review
+    governance.ktayl-solution/approval-authority: Platform Admins
+    governance.ktayl-solution/evidence-required: logs CI · attestation cosign · historique du catalogue
   tags:
     - backstage
     - idp
