@@ -7,7 +7,7 @@
   },
   "main": "src/index.ts",
   "dependencies": {
-    "@backstage/frontend-plugin-api": "^0.17.2",
+    "@backstage/frontend-plugin-api": "^0.18.0",
     "@backstage/plugin-catalog-react": "^3.1.0",
     "react": "^18.0.2"
   },
