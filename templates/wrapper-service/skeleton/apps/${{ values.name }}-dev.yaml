@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${{ values.name }}-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: minicloud-platform
+  # Helm golden path (wrapper chart, dev): ONE Helm source. releaseName kept = ${{ values.name }}.
+  source:
+    repoURL: https://github.com/andrelair-platform/minicloud-gitops.git
+    targetRevision: main
+    path: services/${{ values.name }}/helm
+    helm:
+      releaseName: ${{ values.name }}
+      valueFiles:
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${{ values.devNamespace }}
+  # Carried unconditionally — a no-op when the ExternalSecret / CNPG Cluster isn't rendered.
+  ignoreDifferences:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      jqPathExpressions:
+        - .spec.data[].remoteRef.conversionStrategy
+        - .spec.data[].remoteRef.decodingStrategy
+        - .spec.data[].remoteRef.metadataPolicy
+        - .spec.target.deletionPolicy
+        - .spec.target.template
+    # CNPG injects spec defaults → SSA drift. Ignore only the SCALAR ones. Do NOT ignore
+    # .spec.managed.roles[].* — a list-item ignoreDifferences + RespectIgnoreDifferences=true makes
+    # ArgoCD drop newly-added roles from the SSA patch (set connectionLimit/inherit in the chart instead).
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      jqPathExpressions:
+        - .spec.storage.resizeInUseVolumes
+        - .spec.monitoring.customQueriesConfigMap
+        - .spec.monitoring.disableDefaultQueries
+        - .spec.backup.target
+        - .spec.bootstrap.initdb.encoding
+        - .spec.bootstrap.initdb.localeCType
+        - .spec.bootstrap.initdb.localeCollate
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

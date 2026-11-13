@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${{ values.name }}-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: minicloud-platform
+  # Helm golden path (wrapper chart, prod): ONE Helm source. releaseName kept = ${{ values.name }}.
+  # CODEOWNERS gates apps/ + services/*/helm → this is where Kargo's prod-promotion PR lands.
+  source:
+    repoURL: https://github.com/andrelair-platform/minicloud-gitops.git
+    targetRevision: main
+    path: services/${{ values.name }}/helm
+    helm:
+      releaseName: ${{ values.name }}
+      valueFiles:
+        - values-prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${{ values.prodNamespace }}
+  # Carried unconditionally — a no-op when the ExternalSecret / CNPG Cluster isn't rendered.
+  ignoreDifferences:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      jqPathExpressions:
+        - .spec.data[].remoteRef.conversionStrategy
+        - .spec.data[].remoteRef.decodingStrategy
+        - .spec.data[].remoteRef.metadataPolicy
+        - .spec.target.deletionPolicy
+        - .spec.target.template
+    # CNPG injects spec defaults → SSA drift. Ignore only the SCALAR ones. Do NOT ignore
+    # .spec.managed.roles[].* — a list-item ignoreDifferences + RespectIgnoreDifferences=true makes
+    # ArgoCD drop newly-added roles from the SSA patch (set connectionLimit/inherit in the chart instead).
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      jqPathExpressions:
+        - .spec.storage.resizeInUseVolumes
+        - .spec.monitoring.customQueriesConfigMap
+        - .spec.monitoring.disableDefaultQueries
+        - .spec.backup.target
+        - .spec.bootstrap.initdb.encoding
+        - .spec.bootstrap.initdb.localeCType
+        - .spec.bootstrap.initdb.localeCollate
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

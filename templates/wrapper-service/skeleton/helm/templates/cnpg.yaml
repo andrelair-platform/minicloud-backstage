@@ -1,0 +1,213 @@
+{{- if .Values.db.enabled }}
+# Dedicated CloudNativePG cluster for ${{ values.name }} (datastore-selection.md — CNPG is the standard).
+# dev = 1 instance, prod = 2 + R2 PITR. App connects as role `${{ values.name }}` to host
+# `${{ values.name }}-cnpg-rw`, database `${{ values.name }}`.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: ${{ values.name }}-cnpg
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+spec:
+  instances: {{ .Values.db.instances }}
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: {{ .Values.db.storageSize }}
+    storageClass: longhorn
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  monitoring:
+    enablePodMonitor: true
+  managed:
+    roles:
+      # App read-write role. connectionLimit/inherit are set EXPLICITLY to the CNPG-injected defaults
+      # so the live Cluster matches git with NO per-role ignoreDifferences — a list-item
+      # ignoreDifferences + RespectIgnoreDifferences=true makes ArgoCD drop newly-added roles from the
+      # SSA patch (a new role would silently never apply). See the ArgoCD apps' ignoreDifferences.
+      - name: ${{ values.name }}
+        ensure: present
+        login: true
+        superuser: false
+        connectionLimit: -1
+        inherit: true
+        passwordSecret:
+          name: ${{ values.name }}-cnpg-role
+  bootstrap:
+    initdb:
+      database: ${{ values.name }}
+      owner: ${{ values.name }}
+{{- if .Values.db.backup.enabled }}
+  backup:
+    retentionPolicy: {{ .Values.db.backup.retentionPolicy | quote }}
+    barmanObjectStore:
+      destinationPath: s3://{{ .Values.db.backup.bucket }}
+      endpointURL: {{ .Values.db.backup.endpointURL }}
+      s3Credentials:
+        accessKeyId:
+          name: ${{ values.name }}-cnpg-r2
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: ${{ values.name }}-cnpg-r2
+          key: SECRET_ACCESS_KEY
+      wal:
+        compression: gzip
+      data:
+        compression: gzip
+{{- end }}
+---
+# App role password — Vault secret/platform/${{ values.name }} property `db-password`.
+# CNPG sets the role password FROM this secret; the app reads the same value for its DSN.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: ${{ values.name }}-cnpg-role
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: ${{ values.name }}-cnpg-role
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    template:
+      type: kubernetes.io/basic-auth
+      data:
+        username: "${{ values.name }}"
+        password: "{{ `{{ .pw }}` }}"
+  data:
+    - secretKey: pw
+      remoteRef:
+        key: platform/${{ values.name }}
+        property: db-password
+{{- if .Values.db.backup.enabled }}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: ${{ values.name }}-cnpg-r2
+spec:
+  refreshInterval: 24h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: ${{ values.name }}-cnpg-r2
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: ACCESS_KEY_ID
+      remoteRef: { key: {{ .Values.db.backup.vaultPath }}, property: r2-access-key-id }
+    - secretKey: SECRET_ACCESS_KEY
+      remoteRef: { key: {{ .Values.db.backup.vaultPath }}, property: r2-secret-access-key }
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: ${{ values.name }}-cnpg-daily
+spec:
+  schedule: {{ .Values.db.backup.schedule | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: ${{ values.name }}-cnpg
+---
+# WAL keepalive — a near-idle DB produces no WAL, so a base backup's closing WAL segment never archives
+# and the backup is NOT restorable. A heartbeat INSERT every 10 min keeps WAL advancing.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ${{ values.name }}-cnpg-wal-keepalive
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels:
+            app: ${{ values.name }}-cnpg-wal-keepalive
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            fsGroup: 999
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: keepalive
+              image: docker.io/library/postgres:17-alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  psql -v ON_ERROR_STOP=1 -tAc "create table if not exists public._wal_keepalive(id bigserial primary key, ts timestamptz default now()); insert into public._wal_keepalive default values; delete from public._wal_keepalive where ts < now() - interval '2 days';"
+              env:
+                - { name: PGHOST, value: ${{ values.name }}-cnpg-rw }
+                - { name: PGUSER, value: "${{ values.name }}" }
+                - { name: PGDATABASE, value: "${{ values.name }}" }
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: ${{ values.name }}-cnpg-role, key: password }
+                - { name: HOME, value: /tmp }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              resources:
+                requests: { cpu: 10m, memory: 32Mi }
+                limits:   { cpu: 100m, memory: 64Mi }
+              volumeMounts:
+                - { name: tmp, mountPath: /tmp }
+          volumes:
+            - { name: tmp, emptyDir: {} }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${{ values.name }}-cnpg-wal-keepalive-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: ${{ values.name }}-cnpg-wal-keepalive
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: ${{ values.name }}-cnpg
+      ports: [{ protocol: TCP, port: 5432 }]
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+{{- end }}
+---
+# Isolates the CNPG pods and allows exactly: the operator (cnpg-system) + same-namespace
+# (replication + the app → DB). Same-ns rule is REQUIRED or a 2nd instance can't join (stuck 1/2).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${{ values.name }}-allow-cnpg-operator
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: ${{ values.name }}-cnpg
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports: [{ protocol: TCP, port: 8000 }, { protocol: TCP, port: 5432 }]
+    - from:
+        - podSelector: {}
+      ports: [{ protocol: TCP, port: 5432 }]
+{{- end }}

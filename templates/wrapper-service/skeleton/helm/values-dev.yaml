@@ -1,0 +1,15 @@
+# dev — Harbor image, ns ${{ values.name }}. Single replica; DB (if enabled) is 1 instance, no backup.
+minicloud-app-deployment:
+  image:
+    repository: harbor.10.0.0.200.nip.io/library/${{ values.imageRepo }}
+    tag: "latest"          # set to the first built SHA; thereafter promoted by Kargo
+  workload:
+    replicas: 1
+  ingress:
+    host: ${{ values.name }}.10.0.0.200.nip.io
+tlsCert:
+  dnsName: ${{ values.name }}.10.0.0.200.nip.io
+db:
+  instances: 1
+  backup:
+    enabled: false
