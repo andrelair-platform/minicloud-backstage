@@ -1,0 +1,6 @@
+.DS_Store
+.git/
+.gitignore
+*.tmp
+# Do NOT add charts/ here — it makes Helm treat the vendored dependency as missing at render.
+# charts/ is gitignored at the repo root (services/*/helm/charts/); commit Chart.lock instead.

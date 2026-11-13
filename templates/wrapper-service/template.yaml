@@ -1,0 +1,160 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: wrapper-service
+  title: Deployment — Helm wrapper-chart service (dev+prod)
+  description: >
+    Scaffolds a conformant GitOps DEPLOYMENT for a custom app on the current golden path:
+    a thin Helm wrapper chart (depends on the minicloud-app-deployment library chart) with
+    dev+prod values overlays, two ArgoCD Applications, and optional CNPG database + app-secret
+    (ExternalSecret) extras. Opens ONE PR on minicloud-gitops. The application SOURCE lives in
+    its own repo — this template only produces deployment config (conventions.md).
+  tags:
+    - golden-path
+    - helm
+    - gitops
+    - deployment
+spec:
+  owner: group:default/platform
+  type: service
+
+  parameters:
+    - title: Service
+      required: [name, description, owner, port]
+      properties:
+        name:
+          title: Name
+          type: string
+          description: >
+            Service slug — lowercase/hyphens, 4-30 chars. Becomes the chart name, release name,
+            selector label, TLS secret, and the dev/prod hosts (<name>.10.0.0.200.nip.io / <name>-prod...).
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: One-line description (chart + Backstage catalog)
+        owner:
+          title: Owner
+          type: string
+          description: Backstage entity ref for the owning team
+          default: group:default/platform
+        port:
+          title: Container port
+          type: integer
+          description: Port the container listens on (health probes use /healthz on this port)
+          default: 8080
+    - title: Placement
+      required: [appGroup, devNamespace, prodNamespace, imageRepo]
+      properties:
+        appGroup:
+          title: Apps group (apps/is/<group>)
+          type: string
+          description: The apps/is/<group>/ folder the two ArgoCD Applications land in.
+          default: insurance
+        devNamespace:
+          title: Dev namespace
+          type: string
+          default: ''
+          description: Kubernetes namespace for dev (defaults to the service name if left blank).
+        prodNamespace:
+          title: Prod namespace
+          type: string
+          default: ''
+          description: Kubernetes namespace for prod (defaults to <name>-prod if left blank).
+        imageRepo:
+          title: Image basename
+          type: string
+          default: ''
+          description: >
+            The repo/package basename (defaults to the service name). Dev pulls
+            harbor.10.0.0.200.nip.io/library/<basename>, prod pulls ghcr.io/andrelair-platform/<basename>.
+    - title: Extras
+      properties:
+        needsDb:
+          title: Needs a database (CNPG Postgres)
+          type: boolean
+          default: false
+          description: Render a dedicated CloudNativePG cluster (dev 1 / prod 2 instances, prod R2 PITR) + a read-write role.
+        needsSecret:
+          title: Needs an app secret (ExternalSecret from Vault)
+          type: boolean
+          default: false
+          description: Render an app-config ExternalSecret (Vault secret/platform/<name>) wired to the pod via envFrom.
+        needsSSO:
+          title: Behind Authentik SSO
+          type: boolean
+          default: false
+          description: Adds a README step to create the Authentik provider + forward-auth ingress (cannot be fully scaffolded — identity provisioning is a separate step).
+
+  steps:
+    - id: fetch-helm
+      name: Generate the wrapper Helm chart
+      action: fetch:template
+      input:
+        url: ./skeleton/helm
+        targetPath: services/${{ parameters.name }}/helm
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          port: ${{ parameters.port }}
+          imageRepo: ${{ parameters.imageRepo if parameters.imageRepo else parameters.name }}
+          needsDb: ${{ parameters.needsDb }}
+          needsSecret: ${{ parameters.needsSecret }}
+
+    - id: fetch-apps
+      name: Generate the two ArgoCD Applications
+      action: fetch:template
+      input:
+        url: ./skeleton/apps
+        targetPath: apps/is/${{ parameters.appGroup }}
+        values:
+          name: ${{ parameters.name }}
+          devNamespace: ${{ parameters.devNamespace if parameters.devNamespace else parameters.name }}
+          prodNamespace: ${{ parameters.prodNamespace if parameters.prodNamespace else parameters.name + '-prod' }}
+
+    - id: fetch-meta
+      name: Generate README + catalog entity
+      action: fetch:template
+      input:
+        url: ./skeleton/meta
+        targetPath: services/${{ parameters.name }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          appGroup: ${{ parameters.appGroup }}
+          devNamespace: ${{ parameters.devNamespace if parameters.devNamespace else parameters.name }}
+          prodNamespace: ${{ parameters.prodNamespace if parameters.prodNamespace else parameters.name + '-prod' }}
+          imageRepo: ${{ parameters.imageRepo if parameters.imageRepo else parameters.name }}
+          needsDb: ${{ parameters.needsDb }}
+          needsSecret: ${{ parameters.needsSecret }}
+          needsSSO: ${{ parameters.needsSSO }}
+
+    - id: gitops-pr
+      name: Open the deployment PR on minicloud-gitops
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=andrelair-platform&repo=minicloud-gitops
+        branchName: scaffolder/${{ parameters.name }}-deployment
+        title: "feat(${{ parameters.name }}): scaffold GAP wrapper-chart deployment"
+        description: |
+          Auto-generated by the Backstage **wrapper-service** golden-path template.
+
+          **Adds**
+          - `services/${{ parameters.name }}/helm/` — wrapper chart (library dep) + `values-dev/prod.yaml`
+          - `apps/is/${{ parameters.appGroup }}/${{ parameters.name }}-{dev,prod}.yaml` — two ArgoCD Applications
+          ${{ '- CNPG database extras (templates/cnpg.yaml, Helm-gated db.enabled)' if parameters.needsDb else '' }}
+          ${{ '- App-secret ExternalSecret (templates/externalsecret.yaml, Helm-gated appSecret.enabled)' if parameters.needsSecret else '' }}
+
+          **Required before the apps go green** (see `services/${{ parameters.name }}/README.md`):
+          1. `cd services/${{ parameters.name }}/helm && helm dependency update && git add Chart.lock` (ArgoCD needs the lock).
+          2. Add `${{ parameters.devNamespace if parameters.devNamespace else parameters.name }}` + `${{ parameters.prodNamespace if parameters.prodNamespace else parameters.name + '-prod' }}` to the `minicloud-platform` AppProject destinations.
+          3. Build + push the first image, then set the dev/prod `image.tag`.
+          4. Wire Kargo once the first ghcr image exists (copy `services/ktayl-policy-service/kargo/`).
+          ${{ '5. Create the Vault secret `secret/platform/' + parameters.name + '` for the app ExternalSecret.' if parameters.needsSecret else '' }}
+
+  output:
+    links:
+      - title: Deployment PR
+        url: ${{ steps['gitops-pr'].output.remoteUrl }}

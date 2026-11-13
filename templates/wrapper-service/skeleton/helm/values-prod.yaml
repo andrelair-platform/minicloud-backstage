@@ -1,0 +1,22 @@
+# prod — ghcr SHA image (block-style tag so Kargo's yaml-update can rewrite it), 2 replicas,
+# ns ${{ values.name }}-prod, DB 2 instances + R2 PITR.
+minicloud-app-deployment:
+  image:
+    repository: ghcr.io/andrelair-platform/${{ values.imageRepo }}
+    # MUST stay block-style (never flow `{ tag: ... }`) — Kargo's yaml-update cannot mutate a flow map.
+    tag: "latest"
+  imagePullSecrets:
+    - { name: ghcr-pull }
+  workload:
+    replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  ingress:
+    host: ${{ values.name }}-prod.10.0.0.200.nip.io
+tlsCert:
+  dnsName: ${{ values.name }}-prod.10.0.0.200.nip.io
+db:
+  instances: 2
+  backup:
+    enabled: true

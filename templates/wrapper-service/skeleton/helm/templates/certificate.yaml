@@ -1,0 +1,14 @@
+# TLS cert for the Ingress host (wrapper template → stable name across env flips).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ${{ values.name }}-tls
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+spec:
+  secretName: ${{ values.name }}-tls
+  dnsNames:
+    - {{ .Values.tlsCert.dnsName | quote }}
+  issuerRef:
+    name: minicloud-ca
+    kind: ClusterIssuer

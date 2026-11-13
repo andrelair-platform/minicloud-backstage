@@ -1,0 +1,70 @@
+# ${{ values.name }} wrapper chart — common values.
+# (1) minicloud-app-deployment: = the library subchart (workload + Service + Ingress);
+# (2) top-level keys drive THIS chart's templates/ (TLS cert always; DB + app-secret gated).
+minicloud-app-deployment:
+  # Stable, predictable selector for a greenfield service (pod label used by netpols/PDB/anti-affinity).
+  selectorLabels:
+    app: ${{ values.name }}
+  serviceAccount:
+    create: true
+    name: ${{ values.name }}
+    automountServiceAccountToken: false
+  # image.repository is set per-env (dev=Harbor, prod=ghcr); tag is promoted by Kargo.
+  ports:
+    - { name: http, containerPort: ${{ values.port }}, protocol: TCP }
+  service:
+    ports:
+      - { name: http, port: 80, targetPort: http }
+  env:
+    - { name: PORT, value: "${{ values.port }}" }
+${% if values.needsSecret %}
+  # app config/secrets from the ExternalSecret rendered by templates/externalsecret.yaml
+  envFrom:
+    - secretRef: { name: ${{ values.name }}-secret }
+${% endif %}
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  readinessProbe:
+    httpGet: { path: /healthz, port: http }
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  livenessProbe:
+    httpGet: { path: /healthz, port: http }
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels: { app: ${{ values.name }} }
+            topologyKey: kubernetes.io/hostname
+  ingress:
+    enabled: true
+    className: nginx
+    servicePort: 80
+    tls:
+      enabled: true
+      secretName: ${{ values.name }}-tls
+    # host is set per env (values-dev.yaml / values-prod.yaml)
+  certificate:
+    enabled: false   # the cert is a wrapper template (templates/certificate.yaml)
+
+# ---- wrapper-local flags (drive templates/) ----
+tlsCert:
+  dnsName: ""        # set per env
+appSecret:
+  enabled: ${{ values.needsSecret }}   # templates/externalsecret.yaml (Vault secret/platform/${{ values.name }})
+db:
+  enabled: ${{ values.needsDb }}       # templates/cnpg.yaml — CNPG cluster + rw role + netpol
+  instances: 1                         # prod overrides to 2
+  storageSize: 5Gi
+  backup:
+    enabled: false                     # prod overrides to true (R2 PITR + WAL keepalive)
+    retentionPolicy: "14d"
+    bucket: minicloud-cnpg-offsite/${{ values.name }}
+    endpointURL: https://4d3a131c84ca31b951cba16a5b7db0c1.r2.cloudflarestorage.com
+    vaultPath: platform/cloudflare
+    schedule: "0 0 5 * * *"
