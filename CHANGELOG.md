@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.2](https://github.com/andrelair-platform/minicloud-backstage/compare/minicloud-backstage-v0.1.1...minicloud-backstage-v0.1.2) (2026-11-13)
+
+
+### Features
+
+* **catalog:** governance & compliance entity card (capability-registry §8) ([#23](https://github.com/andrelair-platform/minicloud-backstage/issues/23)) ([9cdf7d3](https://github.com/andrelair-platform/minicloud-backstage/commit/9cdf7d317bab057135d0e58775dc9f4e77a10a01))
+* **scaffolder:** add wrapper-service template; retire stale go-service ([#25](https://github.com/andrelair-platform/minicloud-backstage/issues/25)) ([6d6114c](https://github.com/andrelair-platform/minicloud-backstage/commit/6d6114cae07491efdae0e2c87a08ddcf13d6256d))
+
+
+### Bug Fixes
+
+* **scaffolder:** go-service cert must use ECDSA + correct issuer name ([#22](https://github.com/andrelair-platform/minicloud-backstage/issues/22)) ([f77116a](https://github.com/andrelair-platform/minicloud-backstage/commit/f77116a51fc12f1d11d5980220d9f7285c292d93))
+* **website:** correct sidebars.ts brace syntax ([da573af](https://github.com/andrelair-platform/minicloud-backstage/commit/da573af025a7787c8dca8bda74d6c451f4936e44))
+
 ## [0.1.1](https://github.com/andrelair-platform/minicloud-backstage/compare/minicloud-backstage-v0.1.0...minicloud-backstage-v0.1.1) (2026-08-14)
 
 
