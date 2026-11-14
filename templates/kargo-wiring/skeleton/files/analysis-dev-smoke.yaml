@@ -1,0 +1,89 @@
+# Kargo dev-Stage verification (Option 2): the smoke test that qualifies a Freight for prod.
+# Kargo creates an AnalysisRun from this after promoting to the dev Stage; only if it succeeds
+# is the Freight marked "Verified in dev" → the prod Stage (sources.stages:[dev]) accepts it.
+# This replaces the CI smoke/canary jobs (which drove the dev deploy synchronously — a
+# sync-over-async anti-pattern once Kargo owns dev promotion). argo-rollouts (cluster-scoped)
+# reconciles the AnalysisRun; the Job runs in this (Kargo project) namespace.
+{%- if values.smokeVariant == 'A' %}
+#
+# VARIANT A — scale-to-zero (KEDA) + SSO'd dev. Probe the KEDA interceptor directly with the dev
+# Host header: it holds the request, scales dev 0→1, forwards — AND bypasses the ingress SSO (we
+# test the app, not the identity chain). Needs the label-scoped allow-kargo-verification-interceptor
+# netpol (platform/security/network-policies/keda.yaml — one rule for all Kargo projects).
+{%- else %}
+#
+# VARIANT B — always-on + no-SSO dev. Reach the app the real way, through ingress-nginx.
+# --connect-to keeps SNI+Host = the real dev host (right server block, not a default 302) while
+# dialing the in-cluster nginx service; -k trusts the minicloud CA implicitly. No extra
+# NetworkPolicy: ingress-nginx accepts from all namespaces and the dev ns already allows it.
+{%- endif %}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: ${{ values.name }}-dev-verify
+  namespace: ${{ values.name }}
+spec:
+  metrics:
+    - name: dev-smoke
+      count: 1
+      provider:
+        job:
+          spec:
+            backoffLimit: 3
+            activeDeadlineSeconds: 180
+            ttlSecondsAfterFinished: 300
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/part-of: ${{ values.name }}
+                  kargo.akuity.io/verify: dev-smoke
+              spec:
+                restartPolicy: Never
+                # Gatekeeper: require-non-root + no-privilege-escalation + require-resource-limits
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: 100
+                  seccompProfile:
+                    type: RuntimeDefault
+                containers:
+                  - name: smoke
+                    # Fully-qualified registry: the allowed-registries policy denies a bare image name.
+                    image: docker.io/curlimages/curl:8.11.1
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      readOnlyRootFilesystem: true
+                      capabilities:
+                        drop: [ALL]
+                    resources:
+                      requests: {cpu: 25m, memory: 32Mi}
+                      limits: {cpu: 100m, memory: 64Mi}
+                    command: [/bin/sh, -c]
+                    args:
+{%- if values.smokeVariant == 'A' %}
+                      - |
+                        set -eu
+                        HOST=${{ values.devHost }}
+                        BASE=http://keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local:8080
+                        echo "smoke: waking dev via KEDA interceptor, probing Host=$HOST"
+                        # --retry-all-errors covers the KEDA cold-start window (503/refused while
+                        # dev scales 0→1) — retries until the pod is warm and serves 200.
+                        curl -fsS --max-time 20 --retry 10 --retry-delay 6 --retry-all-errors \
+                          -H "Host: $HOST" "$BASE/healthz"
+                        echo " healthz OK"
+                        curl -fsS --max-time 20 --retry 5 --retry-delay 3 --retry-all-errors \
+                          -H "Host: $HOST" "$BASE/readyz"
+                        echo " readyz OK"
+                        echo "dev smoke passed"
+{%- else %}
+                      - |
+                        set -eu
+                        H=${{ values.devHost }}
+                        NGINX=nginx-ingress-ingress-nginx-controller.ingress-nginx.svc.cluster.local
+                        echo "smoke: GET https://$H/healthz via ingress-nginx"
+                        code=$(curl -sSk -o /dev/null -w '%{http_code}' --max-time 20 \
+                          --retry 8 --retry-delay 5 --retry-all-errors \
+                          --connect-to "$H:443:$NGINX:443" "https://$H/healthz")
+                        echo "healthz http_code=$code"
+                        test "$code" = 200
+                        echo "dev smoke passed"
+{%- endif %}
