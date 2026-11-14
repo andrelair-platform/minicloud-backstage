@@ -82,10 +82,15 @@ spec:
           default: false
           description: Render an app-config ExternalSecret (Vault secret/platform/<name>) wired to the pod via envFrom.
         needsSSO:
-          title: Behind Authentik SSO
+          title: Behind Authentik SSO (forward-auth)
           type: boolean
           default: false
-          description: Adds a README step to create the Authentik provider + forward-auth ingress (cannot be fully scaffolded — identity provisioning is a separate step).
+          description: Scaffolds the Authentik forward-auth ingress annotations (SSO gate at the edge — needs NO app code). The only step left is one provisioning command (see the generated README).
+        ssoGroup:
+          title: SSO group (needsSSO only)
+          type: string
+          default: Platform Admins
+          description: The Authentik group allowed through the forward-auth gate. Must already exist (ensure-groups.sh). Ignored unless needsSSO is on.
 
   steps:
     - id: fetch-helm
@@ -101,6 +106,8 @@ spec:
           imageRepo: ${{ parameters.imageRepo if parameters.imageRepo else parameters.name }}
           needsDb: ${{ parameters.needsDb }}
           needsSecret: ${{ parameters.needsSecret }}
+          needsSSO: ${{ parameters.needsSSO }}
+          ssoGroup: ${{ parameters.ssoGroup }}
 
     - id: fetch-apps
       name: Generate the two ArgoCD Applications
@@ -130,6 +137,7 @@ spec:
           needsDb: ${{ parameters.needsDb }}
           needsSecret: ${{ parameters.needsSecret }}
           needsSSO: ${{ parameters.needsSSO }}
+          ssoGroup: ${{ parameters.ssoGroup }}
 
     - id: gitops-pr
       name: Open the deployment PR on minicloud-gitops
