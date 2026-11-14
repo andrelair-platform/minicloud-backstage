@@ -18,10 +18,9 @@ are the two env overlays consumed by `apps/is/${{ values.appGroup }}/${{ values.
 
 ## Finish wiring (before the apps go green)
 
-1. **Lock the chart dependency** (ArgoCD needs `Chart.lock`):
-   ```bash
-   cd services/${{ values.name }}/helm && helm dependency update && git add Chart.lock
-   ```
+1. **Chart.lock** — ✅ **automatic, no action.** The `helm-chart-lock` CI workflow generates it on this PR
+   and commits it back to the branch (ArgoCD's `helm dependency build` needs it). No local
+   `helm dependency update`.
 2. **Namespaces** — ✅ **automatic, no action.** The `minicloud-platform` AppProject allow-lists every
    non-system namespace, so `${{ values.devNamespace }}` and `${{ values.prodNamespace }}` are already
    permitted (`CreateNamespace=true` creates them on first sync).
