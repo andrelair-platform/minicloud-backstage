@@ -5,8 +5,9 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 # Helm golden path — this thin wrapper depends on the shared library chart (one OCI artifact).
-# AFTER scaffolding: run `helm dependency update` in this dir and COMMIT Chart.lock — ArgoCD's
-# repo-server runs `helm dependency build`, which requires the lock.
+# Chart.lock is generated automatically by the `helm-chart-lock` CI workflow on the scaffolder PR
+# and committed back (ArgoCD's repo-server runs `helm dependency build`, which requires the lock) —
+# no local `helm dependency update` needed.
 dependencies:
   - name: minicloud-app-deployment
     version: 0.4.0

@@ -156,7 +156,7 @@ spec:
           ${{ '- App-secret ExternalSecret (templates/externalsecret.yaml, Helm-gated appSecret.enabled)' if parameters.needsSecret else '' }}
 
           **Required before the apps go green** (see `services/${{ parameters.name }}/README.md`):
-          1. `cd services/${{ parameters.name }}/helm && helm dependency update && git add Chart.lock` (ArgoCD needs the lock).
+          1. **Chart.lock** — automatic: the `helm-chart-lock` CI workflow generates + commits it on this PR.
           2. Build + push the first image, then set the dev/prod `image.tag`.
           3. Wire Kargo once the first ghcr image exists — run the **kargo-wiring** template (Backstage → Create → "Promotion — Kargo dev→prod pipeline") with `name=${{ parameters.name }}`.
           ${{ '4. Create the Vault secret `secret/platform/' + parameters.name + '` for the app ExternalSecret.' if parameters.needsSecret else '' }}
