@@ -127,11 +127,11 @@ spec:
           The `kargo-projects` ApplicationSet auto-discovers it → app `kargo-${{ parameters.name }}` (no app wiring).
 
           **Before it goes green** (see `services/${{ parameters.name }}/kargo/README.md`):
-          1. Confirm `${{ parameters.name }}` is a destination on the `minicloud-platform` AppProject.
-          2. Ensure `values-dev.yaml` + `values-prod.yaml` write `minicloud-app-deployment.image.tag` as
+          1. Ensure `values-dev.yaml` + `values-prod.yaml` write `minicloud-app-deployment.image.tag` as
              **block-style** YAML (Kargo's yaml-update cannot mutate a flow map).
-          3. The first ghcr image must exist.
-          ${{ '4. **Verify the NewestBuild ranking** (the image-model trap): the discovered tags must have DISTINCT createdAt, else promotion stalls silently → switch to the git model. Command in the README.' if parameters.warehouseModel == 'image' else '4. git model: keep the Warehouse `excludePaths` a superset of the source repo CI `paths-ignore`.' }}
+          2. The first ghcr image must exist.
+          (The namespace is already permitted — the AppProject allow-lists all non-system namespaces.)
+          ${{ '3. **Verify the NewestBuild ranking** (the image-model trap): the discovered tags must have DISTINCT createdAt, else promotion stalls silently → switch to the git model. Command in the README.' if parameters.warehouseModel == 'image' else '3. git model: keep the Warehouse `excludePaths` a superset of the source repo CI `paths-ignore`.' }}
 
   output:
     links:
