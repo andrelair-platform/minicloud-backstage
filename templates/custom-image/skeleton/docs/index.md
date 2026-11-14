@@ -11,10 +11,14 @@ This is a custom image that extends `${{ values.upstreamImage }}` with minicloud
 
 ## Deployment
 
-The image is deployed as a manifest (not Kustomize overlays) in `minicloud-gitops/manifests/${{ values.name }}/`.
+This repo produces the **image only**. Deploy it with the **wrapper-service** golden-path
+template (`imageRepo = ${{ values.name }}`), which opens a conformant GAP wrapper-chart PR on
+`minicloud-gitops` (`services/${{ values.name }}/helm` + dev/prod ArgoCD apps). Deployment config
+never lives in this code repo (conventions.md: code repo ≠ deployment repo).
 
-## Image registry
+## Image registries
 
-`harbor.10.0.0.200.nip.io/library/${{ values.name }}`
+- **dev** — `harbor.10.0.0.200.nip.io/library/${{ values.name }}`
+- **prod** — `ghcr.io/andrelair-platform/${{ values.name }}` (keyless Cosign-signed, SBOM attached)
 
-Built and signed automatically by the CI pipeline on every push to `main`.
+Built, scanned, signed and dual-pushed automatically by the CI pipeline on every push to `main`.
