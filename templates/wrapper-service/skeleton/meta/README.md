@@ -26,9 +26,11 @@ are the two env overlays consumed by `apps/is/${{ values.appGroup }}/${{ values.
    to the `minicloud-platform` AppProject `destinations`.
 3. **Build + push the first image** from the source repo, then set `image.tag` in `values-dev.yaml`
    (and `values-prod.yaml` once promoted). Keep `tag:` **block-style** — Kargo can't rewrite a flow map.
-4. **Wire Kargo** once the first ghcr image exists: copy `services/ktayl-policy-service/kargo/`
-   (Project + Warehouse + dev/prod Stages), adjust names, and let the `kargo-projects` ApplicationSet
-   pick it up. Until then promote dev→prod by a manual (CODEOWNERS-gated) prod `image.tag` PR.
+4. **Wire Kargo** once the first ghcr image exists — run the **kargo-wiring** golden-path template
+   (Backstage → Create → *"Promotion — Kargo dev→prod pipeline"*) with `name = ${{ values.name }}`. It
+   scaffolds `services/${{ values.name }}/kargo/` (pick the image vs git Warehouse model) and the
+   `kargo-projects` ApplicationSet picks it up. Until then, promote dev→prod by a manual
+   (CODEOWNERS-gated) prod `image.tag` PR.
 ${% if values.needsSecret %}
 5. **Create the app secret in Vault** — every key becomes an env var via `envFrom`:
    ```bash

@@ -1,0 +1,43 @@
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: ${{ values.name }}
+  namespace: ${{ values.name }}
+spec:
+  interval: 5m
+  freightCreationPolicy: Automatic
+  subscriptions:
+{%- if values.warehouseModel == 'git' %}
+    # GIT-Warehouse model (Freight = a commit), NOT image/NewestBuild. Use this when NewestBuild
+    # can't rank builds by time — a FIXED base-layer date (FROM eclipse-temurin:21-jre) or a
+    # reproducible build with a pinned config.created (Go/distroless + SOURCE_DATE_EPOCH) → every
+    # build ties → auto-promotion stalls ("newest already exists"). Keying Freight on the git
+    # COMMIT is timestamp-independent → immune. Stages pin image.tag = commitFrom(...).ID[0:7]
+    # (== the CI 7-char short-SHA tag). Also use this for a MULTI-image service (one image can be
+    # unchanged → two NewestBuild subs → mixed Freight). Public repo → no git credential needed.
+    - git:
+        repoURL: https://github.com/andrelair-platform/${{ values.sourceRepo }}.git
+        branch: main
+        # Phantom-commit guard: only create Freight for commits whose image CI actually builds.
+        # CI skips docs-only / [skip ci] commits (paths-ignore) → promoting one would point at a
+        # SHA whose image was never built → ImagePullBackOff. Keep this a SUPERSET of the CI skips.
+        excludePaths:
+          - docs
+          - bmad
+          - catalog-info.yaml
+          - "regex:.*\\.md$"
+{%- else %}
+    # IMAGE-Warehouse model (NewestBuild ranks tags by build time). Only valid when the image's
+    # build timestamp is MONOTONIC per build — true when the first layer is epoch 1970-01-01 so
+    # Kargo falls back to a real config.created (platform-demo / plane / agent / crew). If the
+    # dates tie across tags, NewestBuild silently can't rank → nothing promotes → switch to the
+    # git model. VERIFY before trusting (see README):
+    #   kubectl get warehouse ${{ values.name }} -n ${{ values.name }} -o json \
+    #     | jq '.status.discoveredArtifacts.images[].references[].createdAt'
+    - image:
+        repoURL: ghcr.io/andrelair-platform/${{ values.imageBasename }}
+        imageSelectionStrategy: NewestBuild
+        allowTagsRegexes:
+          - ^[0-9a-f]{7,40}$
+        discoveryLimit: 5
+{%- endif %}

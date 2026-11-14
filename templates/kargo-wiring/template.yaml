@@ -1,0 +1,145 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kargo-wiring
+  title: Promotion — Kargo dev→prod pipeline
+  description: >
+    Wires a custom service onto Kargo so dev→prod promotion is automatic and safe — closes the
+    manual "copy services/<svc>/kargo/" step left by the wrapper-service template. Scaffolds
+    services/<svc>/kargo/ (Project + Warehouse + dev/prod Stages + ESO credentials + dev-verify
+    AnalysisTemplate + ProjectConfig) as a .Files.Get packaging-shim chart, and opens ONE PR on
+    minicloud-gitops. Auto-discovered by the kargo-projects ApplicationSet (no app wiring). Pick the
+    IMAGE vs GIT Warehouse model — the choice that bites (the NewestBuild monotonic-timestamp trap).
+  tags:
+    - golden-path
+    - kargo
+    - gitops
+    - promotion
+spec:
+  owner: group:default/platform
+  type: service
+
+  parameters:
+    - title: Service
+      required: [name, warehouseModel, smokeVariant, devHost]
+      properties:
+        name:
+          title: Service name
+          type: string
+          description: >
+            The service slug — MUST match an existing services/<name>/helm deployment. Becomes the
+            Kargo Project + namespace (the Kargo project lives in the service's dev namespace) and the
+            ApplicationSet-generated app kargo-<name>.
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          ui:autofocus: true
+        warehouseModel:
+          title: Warehouse model
+          type: string
+          default: git
+          enum: [git, image]
+          enumNames:
+            - 'git — Freight = a commit (timestamp-independent; the safe default)'
+            - 'image — NewestBuild ranks tags by build time (ONLY if the timestamp is monotonic)'
+          description: >
+            GIT model works for every service and is immune to the NewestBuild trap — REQUIRED for a
+            Java/temurin or reproducible (Go/distroless + SOURCE_DATE_EPOCH) image, or a multi-image
+            service. IMAGE model only when the image's build timestamp is monotonic per build (first
+            layer = epoch 1970-01-01 → Kargo falls back to a real config.created; platform-demo/plane/
+            agent/crew). If unsure, pick git. The README carries the mandatory verify command.
+        owner:
+          title: Owner
+          type: string
+          default: group:default/platform
+          description: Backstage entity ref for the owning team
+    - title: Warehouse source
+      properties:
+        sourceRepo:
+          title: Source repo (git model only)
+          type: string
+          default: ''
+          description: >
+            The source repo name whose main the git Warehouse subscribes to, e.g. ktayl-policy-service.
+            Defaults to the service name. Ignored for the image model.
+        imageBasename:
+          title: Image basename
+          type: string
+          default: ''
+          description: >
+            The ghcr package basename — ghcr.io/andrelair-platform/<basename>. Defaults to the service
+            name. Used by the image Warehouse + the Kargo image-pull credential.
+    - title: Dev verification (the dev→prod gate)
+      required: [smokeVariant, devHost]
+      properties:
+        smokeVariant:
+          title: Dev-smoke variant
+          type: string
+          default: B
+          enum: [A, B]
+          enumNames:
+            - 'A — scale-to-zero (KEDA) + SSO dev: probe the KEDA interceptor (wakes dev 0→1, bypasses SSO)'
+            - 'B — always-on + no-SSO dev: probe via ingress-nginx (--connect-to)'
+          description: >
+            How the dev-verify AnalysisRun reaches the service. A needs the shared
+            allow-kargo-verification-interceptor netpol; B needs no extra netpol. Health path is /healthz
+            (A also probes /readyz) — edit the AnalysisTemplate if your paths differ.
+        devHost:
+          title: Dev ingress host
+          type: string
+          description: The dev host the smoke probes, e.g. ktayl-policy.10.0.0.200.nip.io
+          pattern: '^[a-z0-9.-]+\.nip\.io$'
+        autoPromoteDev:
+          title: Auto-promote dev (Option 2)
+          type: boolean
+          default: true
+          description: >
+            Generate a ProjectConfig so Kargo auto-promotes new Freight into dev (prod stays manual +
+            CODEOWNERS-gated). Leave on for the target model; turn off to keep dev promotion manual.
+
+  steps:
+    - id: fetch-kargo
+      name: Generate the Kargo pipeline (services/<name>/kargo)
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: services/${{ parameters.name }}/kargo
+        values:
+          name: ${{ parameters.name }}
+          warehouseModel: ${{ parameters.warehouseModel }}
+          sourceRepo: ${{ parameters.sourceRepo if parameters.sourceRepo else parameters.name }}
+          imageBasename: ${{ parameters.imageBasename if parameters.imageBasename else parameters.name }}
+          smokeVariant: ${{ parameters.smokeVariant }}
+          devHost: ${{ parameters.devHost }}
+          autoPromoteDev: ${{ parameters.autoPromoteDev }}
+
+    - id: gitops-pr
+      name: Open the Kargo-wiring PR on minicloud-gitops
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=andrelair-platform&repo=minicloud-gitops
+        branchName: scaffolder/${{ parameters.name }}-kargo
+        title: "feat(${{ parameters.name }}): wire Kargo dev→prod promotion (${{ parameters.warehouseModel }} model)"
+        description: |
+          Auto-generated by the Backstage **kargo-wiring** golden-path template.
+
+          **Adds** `services/${{ parameters.name }}/kargo/` — a `.Files.Get` packaging-shim chart with the
+          Project · Warehouse (**${{ parameters.warehouseModel }}** model) · dev/prod Stages · ESO git+image
+          credentials · dev-verify AnalysisTemplate (variant **${{ parameters.smokeVariant }}**) · ProjectConfig.
+          The `kargo-projects` ApplicationSet auto-discovers it → app `kargo-${{ parameters.name }}` (no app wiring).
+
+          **Before it goes green** (see `services/${{ parameters.name }}/kargo/README.md`):
+          1. Confirm `${{ parameters.name }}` is a destination on the `minicloud-platform` AppProject.
+          2. Ensure `values-dev.yaml` + `values-prod.yaml` write `minicloud-app-deployment.image.tag` as
+             **block-style** YAML (Kargo's yaml-update cannot mutate a flow map).
+          3. The first ghcr image must exist.
+          ${{ '4. **Verify the NewestBuild ranking** (the image-model trap): the discovered tags must have DISTINCT createdAt, else promotion stalls silently → switch to the git model. Command in the README.' if parameters.warehouseModel == 'image' else '4. git model: keep the Warehouse `excludePaths` a superset of the source repo CI `paths-ignore`.' }}
+
+  output:
+    links:
+      - title: Kargo-wiring PR
+        url: ${{ steps['gitops-pr'].output.remoteUrl }}
+    text:
+      - title: Verify after merge
+        content: |
+          `kubectl --context minicloud get project,warehouse,stage -n ${{ parameters.name }}` →
+          new Freight appears on a real build; `verifiedIn:[dev]` before prod becomes promotable.
+          Prod promotion is a **CODEOWNERS-gated squash-merge** and still goes through the QA gate.

@@ -151,7 +151,7 @@ spec:
           1. `cd services/${{ parameters.name }}/helm && helm dependency update && git add Chart.lock` (ArgoCD needs the lock).
           2. Add `${{ parameters.devNamespace if parameters.devNamespace else parameters.name }}` + `${{ parameters.prodNamespace if parameters.prodNamespace else parameters.name + '-prod' }}` to the `minicloud-platform` AppProject destinations.
           3. Build + push the first image, then set the dev/prod `image.tag`.
-          4. Wire Kargo once the first ghcr image exists (copy `services/ktayl-policy-service/kargo/`).
+          4. Wire Kargo once the first ghcr image exists — run the **kargo-wiring** template (Backstage → Create → "Promotion — Kargo dev→prod pipeline") with `name=${{ parameters.name }}`.
           ${{ '5. Create the Vault secret `secret/platform/' + parameters.name + '` for the app ExternalSecret.' if parameters.needsSecret else '' }}
 
   output:
