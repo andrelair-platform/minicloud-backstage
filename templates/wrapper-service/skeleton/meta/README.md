@@ -31,13 +31,13 @@ are the two env overlays consumed by `apps/is/${{ values.appGroup }}/${{ values.
    scaffolds `services/${{ values.name }}/kargo/` (pick the image vs git Warehouse model) and the
    `kargo-projects` ApplicationSet picks it up. Until then, promote dev→prod by a manual
    (CODEOWNERS-gated) prod `image.tag` PR.
-${% if values.needsSecret %}
+{% if values.needsSecret %}
 5. **Create the app secret in Vault** — every key becomes an env var via `envFrom`:
    ```bash
    vault kv put secret/platform/${{ values.name }} SOME_KEY=value ANOTHER=value
    ```
    (ESO renders `${{ values.name }}-secret`; the apps already carry the ESO SSA `ignoreDifferences`.)
-${% endif %}${% if values.needsDb %}
+{% endif %}{% if values.needsDb %}
 6. **Set the DB role password in Vault** (CNPG creates role `${{ values.name }}` from it):
    ```bash
    vault kv patch secret/platform/${{ values.name }} db-password="$(openssl rand -base64 24)"
@@ -46,12 +46,16 @@ ${% endif %}${% if values.needsDb %}
    `${{ values.name }}`. Wire those into the app's config (plain env for host/db; password via the
    `${{ values.name }}-cnpg-role` secret or your app secret). CNPG reconciles the role **after** initdb,
    so any object GRANTs beyond the owner are a one-time manual step.
-${% endif %}${% if values.needsSSO %}
-7. **Authentik SSO (forward-auth)** — this can't be fully scaffolded (identity provisioning is separate):
-   - Create the Authentik provider + application (use the `minicloud-ops/scripts/authentik/` helpers).
-   - Add the nginx forward-auth annotations to `minicloud-app-deployment.ingress.annotations` in the
-     values files. Reference the existing pattern in a live SSO'd service and `[[feedback_public_sso_app_forwardauth]]`.
-${% endif %}
+{% endif %}{% if values.needsSSO %}
+7. **Authentik SSO (forward-auth)** — the nginx forward-auth annotations are **already scaffolded** in
+   `values.yaml` (gated by needsSSO). The only step left is to provision the matching Authentik proxy
+   provider ONCE, from the controller (gates access to the **${{ values.ssoGroup }}** group; non-members → 403):
+   ```bash
+   ssh controller "~/minicloud-ops/scripts/authentik/ensure-groups.sh '${{ values.ssoGroup }}'"
+   ssh controller "~/minicloud-ops/scripts/authentik/forward-auth-provider.sh ${{ values.name }} ${{ values.name }}.10.0.0.200.nip.io '${{ values.ssoGroup }}'"
+   ```
+   Then open the dev host → redirected to Authentik → log in → back, authenticated. See `[[feedback_public_sso_app_forwardauth]]`.
+{% endif %}
 
 ## Verify
 ```bash
