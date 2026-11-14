@@ -14,7 +14,8 @@ hand-edit `image.tag` — Kargo owns the bump.
 
 ## Prerequisites (must already be true)
 1. The service has a **dev deployment** in namespace `${{ values.name }}` (the Kargo project lives in the
-   same ns). Confirm `${{ values.name }}` is a destination on the `minicloud-platform` AppProject.
+   same ns). The `minicloud-platform` AppProject allow-lists all non-system namespaces, so `${{ values.name }}`
+   is already permitted — no AppProject edit needed.
 2. The image is **env-agnostic** (runtime config) and prod pins an **immutable ghcr SHA tag** — both
    `values-dev.yaml` and `values-prod.yaml` write `minicloud-app-deployment.image.tag` as **block-style
    YAML** (never flow `{ tag: … }` — Kargo's yaml-update cannot mutate a flow map).

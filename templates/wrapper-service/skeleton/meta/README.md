@@ -22,8 +22,9 @@ are the two env overlays consumed by `apps/is/${{ values.appGroup }}/${{ values.
    ```bash
    cd services/${{ values.name }}/helm && helm dependency update && git add Chart.lock
    ```
-2. **Register the namespaces** — add `${{ values.devNamespace }}` and `${{ values.prodNamespace }}`
-   to the `minicloud-platform` AppProject `destinations`.
+2. **Namespaces** — ✅ **automatic, no action.** The `minicloud-platform` AppProject allow-lists every
+   non-system namespace, so `${{ values.devNamespace }}` and `${{ values.prodNamespace }}` are already
+   permitted (`CreateNamespace=true` creates them on first sync).
 3. **Build + push the first image** from the source repo, then set `image.tag` in `values-dev.yaml`
    (and `values-prod.yaml` once promoted). Keep `tag:` **block-style** — Kargo can't rewrite a flow map.
 4. **Wire Kargo** once the first ghcr image exists — run the **kargo-wiring** golden-path template
