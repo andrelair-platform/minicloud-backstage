@@ -172,10 +172,13 @@ jobs:
           git checkout -b "${BRANCH}"
           git commit -S -m "ci(backstage): bump image to ${TAG}"
           git push origin "${BRANCH}"
+          # Open the bump PR only — do NOT auto-merge. The gitops main ruleset requires verified
+          # signatures (needs --squash, not --merge) AND helm-values/ is CODEOWNERS-gated, so an
+          # unattended `gh pr merge` fails (this was the exit-123). A human reviews + squash-merges
+          # it through the gate (the prod config change deliberately gets eyes).
           gh pr create \
             --repo "${{ env.GITOPS_REPO }}" \
             --title "ci(backstage): bump image to ${TAG}" \
             --base main \
             --head "${BRANCH}" \
-            --body "Automated image tag bump from CI run ${{ github.run_id }}." \
-          | xargs gh pr merge --merge --delete-branch
+            --body "Automated image tag bump from CI run ${{ github.run_id }}. \`helm-values/\` is CODEOWNERS-gated → review + **squash**-merge (the prod gate)."
