@@ -51,7 +51,13 @@
   "resolutions": {
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "proxy-addr": "2.0.8"
+    "proxy-addr": "2.0.8",
+    "dompurify": "3.4.17",
+    "handlebars": "4.7.10",
+    "shell-quote": "1.11.0",
+    "tar": "7.5.19",
+    "tinypool": "2.1.1",
+    "vm2": "3.12.2"
   },
   "prettier": "@backstage/cli/config/prettier",
   "lint-staged": {
