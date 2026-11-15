@@ -10,7 +10,7 @@ env:
   REGISTRY: harbor.10.0.0.200.nip.io
   IMAGE_REPO: library/backstage
   GITOPS_REPO: andrelair-platform/minicloud-gitops
-  GITOPS_VALUES: helm-values/backstage-values.yaml
+  GITOPS_VALUES: helm-values/minicloud-1/backstage-values.yaml
 
 jobs:
   build-and-push:
