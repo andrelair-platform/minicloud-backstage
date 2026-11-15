@@ -1,6 +1,8 @@
 import { createBackendModule } from '@backstage/backend-plugin-api';
-import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node/alpha';
-import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
+import {
+  createTemplateAction,
+  scaffolderActionsExtensionPoint,
+} from '@backstage/plugin-scaffolder-node';
 import crypto from 'crypto';
 
 const AUTHENTIK_URL =
@@ -64,50 +66,25 @@ async function getDomainId(): Promise<string> {
   return domain.id;
 }
 
-const onboardEmployeeAction = createTemplateAction<{
-  firstName: string;
-  lastName: string;
-  username: string;
-  personalEmail: string;
-  role: string;
-  department: string;
-}>({
+const onboardEmployeeAction = createTemplateAction({
   id: 'minicloud:onboard:employee',
   description:
     'Creates a Stalwart mailbox (email = primary identity) then an Authentik SSO account for a new employee.',
   schema: {
     input: {
-      type: 'object',
-      required: [
-        'firstName',
-        'lastName',
-        'username',
-        'personalEmail',
-        'role',
-        'department',
-      ],
-      properties: {
-        firstName: { type: 'string', title: 'First name' },
-        lastName: { type: 'string', title: 'Last name' },
-        username: {
-          type: 'string',
-          title: 'Platform username (lowercase, no spaces)',
-        },
-        personalEmail: {
-          type: 'string',
-          title: 'Personal email (for Authentik account)',
-        },
-        role: { type: 'string', title: 'Job title' },
-        department: { type: 'string', title: 'Department' },
-      },
+      firstName: z => z.string().describe('First name'),
+      lastName: z => z.string().describe('Last name'),
+      username: z =>
+        z.string().describe('Platform username (lowercase, no spaces)'),
+      personalEmail: z =>
+        z.string().describe('Personal email (for Authentik account)'),
+      role: z => z.string().describe('Job title'),
+      department: z => z.string().describe('Department'),
     },
     output: {
-      type: 'object',
-      properties: {
-        password: { type: 'string', title: 'Generated temporary password' },
-        platformEmail: { type: 'string', title: 'Platform email address' },
-        authentikUserId: { type: 'number', title: 'Authentik user PK' },
-      },
+      password: z => z.string().describe('Generated temporary password'),
+      platformEmail: z => z.string().describe('Platform email address'),
+      authentikUserId: z => z.number().describe('Authentik user PK'),
     },
   },
   async handler(ctx) {
