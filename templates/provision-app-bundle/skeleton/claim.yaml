@@ -1,0 +1,9 @@
+apiVersion: platform.minicloud/v1alpha1
+kind: AppBundle
+metadata:
+  name: ${{ values.appName }}
+  namespace: ${{ values.namespace }}
+spec:
+  appName: ${{ values.appName }}
+  size: ${{ values.size }}
+  storageSize: ${{ values.storageSize }}
