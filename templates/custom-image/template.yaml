@@ -58,6 +58,11 @@ spec:
       input:
         url: ./skeleton
         targetPath: ./service
+        # Skeleton files carry a .njk extension so editors/actionlint don't mis-validate the
+        # templated ci.yml as a real GitHub Actions workflow (it contains Nunjucks ${{ values.* }}
+        # + a {% raw %} block → not valid standalone YAML). fetch:template renders each *.njk and
+        # strips the extension (ci.yml.njk → ci.yml, Dockerfile.njk → Dockerfile, …).
+        templateFileExtension: true
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
