@@ -9,6 +9,17 @@
   "prConcurrentLimit": 3,
   "commitMessagePrefix": "chore(deps):",
 
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "renovate", "security"],
+    "schedule": ["at any time"]
+  },
+
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+
   "enabledManagers": ["dockerfile", "npm"],
 
   "packageRules": [
