@@ -1,0 +1,8 @@
+apiVersion: platform.minicloud/v1alpha1
+kind: PostgresInstance
+metadata:
+  name: ${{ values.dbName }}
+  namespace: ${{ values.namespace }}
+spec:
+  size: ${{ values.size }}
+  storageSize: ${{ values.storageSize }}
