@@ -1,6 +1,8 @@
 import { createBackendModule } from '@backstage/backend-plugin-api';
-import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node/alpha';
-import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
+import {
+  createTemplateAction,
+  scaffolderActionsExtensionPoint,
+} from '@backstage/plugin-scaffolder-node';
 
 const VAULT_ADDR =
   process.env.VAULT_ADDR ?? 'https://vault.devandre.sbs';
@@ -39,21 +41,14 @@ async function vaultPost(path: string, body: unknown): Promise<void> {
   }
 }
 
-const vaultPolicyAction = createTemplateAction<{ name: string }>({
+const vaultPolicyAction = createTemplateAction({
   id: 'vault:policy:create',
   description:
     'Creates a Vault policy, seeds initial KV secrets, and registers a Kubernetes auth role for a new service.',
   schema: {
     input: {
-      type: 'object',
-      required: ['name'],
-      properties: {
-        name: {
-          type: 'string',
-          title: 'Service name',
-          description: 'Kebab-case service name (matches repo name).',
-        },
-      },
+      name: z =>
+        z.string().describe('Kebab-case service name (matches repo name).'),
     },
   },
   async handler(ctx) {
