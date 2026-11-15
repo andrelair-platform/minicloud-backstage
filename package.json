@@ -50,7 +50,8 @@
   },
   "resolutions": {
     "@types/react": "^18",
-    "@types/react-dom": "^18"
+    "@types/react-dom": "^18",
+    "proxy-addr": "2.0.8"
   },
   "prettier": "@backstage/cli/config/prettier",
   "lint-staged": {
