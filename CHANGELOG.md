@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.1.2](https://github.com/andrelair-platform/minicloud-backstage/compare/minicloud-backstage-v0.1.1...minicloud-backstage-v0.1.2) (2026-11-16)
+
+
+### Features
+
+* **app:** golden-path readiness scorecard entity card ([#31](https://github.com/andrelair-platform/minicloud-backstage/issues/31)) ([ca59cb6](https://github.com/andrelair-platform/minicloud-backstage/commit/ca59cb629a34335d9af6e9d01910c24171839a97))
+* **catalog:** governance & compliance entity card (capability-registry §8) ([#23](https://github.com/andrelair-platform/minicloud-backstage/issues/23)) ([9cdf7d3](https://github.com/andrelair-platform/minicloud-backstage/commit/9cdf7d317bab057135d0e58775dc9f4e77a10a01))
+* **kargo-wiring:** add Kargo dev→prod promotion scaffolder ([#27](https://github.com/andrelair-platform/minicloud-backstage/issues/27)) ([3bae0ea](https://github.com/andrelair-platform/minicloud-backstage/commit/3bae0ea1dd4eb11a3ccb807d7a6dfcc46bfd8477))
+* **rbac:** directory-integrated RBAC — Authentik groups -&gt; PermissionPolicy (IDP [#5](https://github.com/andrelair-platform/minicloud-backstage/issues/5)) ([#43](https://github.com/andrelair-platform/minicloud-backstage/issues/43)) ([e4148bc](https://github.com/andrelair-platform/minicloud-backstage/commit/e4148bca5627c4a7515bea02b64eb1dda6545d19))
+* **scaffolder:** 'Provision a PostgreSQL database' golden path ([#39](https://github.com/andrelair-platform/minicloud-backstage/issues/39)) ([d9b5356](https://github.com/andrelair-platform/minicloud-backstage/commit/d9b5356c5e4bfaf1655d47a1ac6c38f2511908bf))
+* **scaffolder:** 'Provision an App Bundle' golden path (DB + network baseline) ([#41](https://github.com/andrelair-platform/minicloud-backstage/issues/41)) ([f55ee1e](https://github.com/andrelair-platform/minicloud-backstage/commit/f55ee1eaae80cd05dce74ad02115533ed5c8d911))
+* **scaffolder:** add wrapper-service template; retire stale go-service ([#25](https://github.com/andrelair-platform/minicloud-backstage/issues/25)) ([6d6114c](https://github.com/andrelair-platform/minicloud-backstage/commit/6d6114cae07491efdae0e2c87a08ddcf13d6256d))
+* **wrapper-service:** scaffold Authentik forward-auth SSO + fix ${% YAML bug ([#28](https://github.com/andrelair-platform/minicloud-backstage/issues/28)) ([6ee8794](https://github.com/andrelair-platform/minicloud-backstage/commit/6ee8794198475a12b46cbb1f430065d2fa6173e3))
+
+
+### Bug Fixes
+
+* **ci:** bump-gitops opens PR, drop broken auto-merge ([#36](https://github.com/andrelair-platform/minicloud-backstage/issues/36)) ([d23d832](https://github.com/andrelair-platform/minicloud-backstage/commit/d23d832e6a9e06b6ec520932f913d40dc0989143))
+* **ci:** correct backstage-values path to helm-values/minicloud-1/ ([#35](https://github.com/andrelair-platform/minicloud-backstage/issues/35)) ([2182922](https://github.com/andrelair-platform/minicloud-backstage/commit/218292221fd31841326821580e0d63de97d6037e))
+* **custom-image:** .njk skeleton so editors stop mis-validating the templated ci.yml ([#40](https://github.com/andrelair-platform/minicloud-backstage/issues/40)) ([95a62f6](https://github.com/andrelair-platform/minicloud-backstage/commit/95a62f63719382554038b63ed3717ec81bd1f8ba))
+* **custom-image:** realign scaffolder with the current constitution ([#26](https://github.com/andrelair-platform/minicloud-backstage/issues/26)) ([2d51dd3](https://github.com/andrelair-platform/minicloud-backstage/commit/2d51dd3012d3c262af456573a31ef6b45555e6fc))
+* **scaffolder:** go-service cert must use ECDSA + correct issuer name ([#22](https://github.com/andrelair-platform/minicloud-backstage/issues/22)) ([f77116a](https://github.com/andrelair-platform/minicloud-backstage/commit/f77116a51fc12f1d11d5980220d9f7285c292d93))
+* **security:** bump @backstage/plugin-scaffolder-backend 4.0.1 → 4.0.3 (CVE-2026-106501) ([#32](https://github.com/andrelair-platform/minicloud-backstage/issues/32)) ([61f4be6](https://github.com/andrelair-platform/minicloud-backstage/commit/61f4be6925415eafc860295a3fd9c9fe6f892dd7))
+* **security:** clear the Backstage CRITICAL CVE wave via resolutions ([#34](https://github.com/andrelair-platform/minicloud-backstage/issues/34)) ([916d65a](https://github.com/andrelair-platform/minicloud-backstage/commit/916d65adb215fec7594f7317c59032e01cd0b262))
+* **security:** pin proxy-addr 2.0.8 via resolutions (CVE-2026-90711) ([#33](https://github.com/andrelair-platform/minicloud-backstage/issues/33)) ([1f72986](https://github.com/andrelair-platform/minicloud-backstage/commit/1f729861539ff93359300f45f5a80e592edbd376))
+* **website:** correct sidebars.ts brace syntax ([da573af](https://github.com/andrelair-platform/minicloud-backstage/commit/da573af025a7787c8dca8bda74d6c451f4936e44))
+
 ## [0.1.1](https://github.com/andrelair-platform/minicloud-backstage/compare/minicloud-backstage-v0.1.0...minicloud-backstage-v0.1.1) (2026-08-14)
 
 
