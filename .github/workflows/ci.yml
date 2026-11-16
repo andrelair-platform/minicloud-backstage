@@ -6,9 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Registry: ghcr.io only (Harbor is being decommissioned — migrated 2026-11-16). ghcr is reached over
+# the public internet, so no Tailscale / minicloud-CA trust is needed here.
 env:
-  REGISTRY: harbor.10.0.0.200.nip.io
-  IMAGE_REPO: library/backstage
+  REGISTRY: ghcr.io
+  IMAGE_REPO: andrelair-platform/minicloud-backstage
   GITOPS_REPO: andrelair-platform/minicloud-gitops
   GITOPS_VALUES: helm-values/minicloud-1/backstage-values.yaml
 
@@ -19,6 +21,7 @@ jobs:
     permissions:
       contents: read
       id-token: write   # Cosign keyless signing
+      packages: write   # push to ghcr.io
 
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
@@ -30,23 +33,6 @@ jobs:
       - name: Compute SHA
         id: meta
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v4.1.3
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
-      # ── Trust the minicloud self-signed CA so Docker accepts Harbor TLS ────
-      - name: Trust minicloud CA
-        run: |
-          sudo mkdir -p /etc/docker/certs.d/${{ env.REGISTRY }}
-          echo "${{ secrets.MINICLOUD_CA_CERT }}" \
-            | sudo tee /etc/docker/certs.d/${{ env.REGISTRY }}/ca.crt
-          # Also add to system trust for cosign / crane
-          echo "${{ secrets.MINICLOUD_CA_CERT }}" | sudo tee /usr/local/share/ca-certificates/minicloud-ca.crt
-          sudo update-ca-certificates
 
       # ── Build Backstage bundles ──────────────────────────────────────────────
       - uses: actions/setup-node@v7
@@ -62,21 +48,17 @@ jobs:
           yarn tsc
           yarn build:backend
 
-      # ── Build and push image to Harbor ──────────────────────────────────────
-      - name: Login to Harbor
+      # ── Build and push image to ghcr.io ─────────────────────────────────────
+      - name: Login to ghcr
         uses: docker/login-action@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.HARBOR_USER }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/setup-buildx-action@v4
-        with:
-          buildkitd-config-inline: |
-            [registry."harbor.10.0.0.200.nip.io"]
-              insecure = true
 
-      - name: Build and push to Harbor
+      - name: Build and push to ghcr
         id: push
         uses: docker/build-push-action@v7
         with:
@@ -140,7 +122,7 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
 
-      - name: Bump image tag in backstage-values.yaml
+      - name: Point the backstage image block at ghcr + bump the tag
         env:
           SHA: ${{ needs.build-and-push.outputs.sha }}
           GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
@@ -148,17 +130,17 @@ jobs:
           TAG="${SHA}-amd64"
           FILE="${{ env.GITOPS_VALUES }}"
 
-          # Only update the backstage.image block (lines 10-15).
-          # Use python to scope the replacement — sed s|registry|… would also
-          # hit the postgresql subchart's image block further down the file.
+          # Scope to the backstage.image block only (the postgresql subchart has its own image block
+          # further down — registry: docker.io). The harbor registry + library/backstage repository are
+          # unique to backstage, so these regexes are no-ops once already on ghcr (idempotent).
           python3 - "$FILE" "$TAG" "$SHA" << 'PYEOF'
           import sys, re, datetime
           path, tag, sha = sys.argv[1], sys.argv[2], sys.argv[3]
           content = open(path).read()
           today = datetime.date.today().isoformat()
-          # Comment line just above the image block
           content = re.sub(r'# git SHA: .* — .*', f'# git SHA: {sha} — built {today} by CI', content)
-          # Only replace tag: "...-amd64" (unique — postgresql tag has no -amd64 suffix)
+          content = content.replace('registry: harbor.10.0.0.200.nip.io', 'registry: ghcr.io')
+          content = content.replace('repository: library/backstage', 'repository: andrelair-platform/minicloud-backstage')
           content = re.sub(r'(tag: ")[^"]*-amd64(")', rf'\g<1>{tag}\2', content)
           open(path, 'w').write(content)
           PYEOF
@@ -170,15 +152,13 @@ jobs:
           fi
           BRANCH="ci/backstage-bump-${SHA}"
           git checkout -b "${BRANCH}"
-          git commit -S -m "ci(backstage): bump image to ${TAG}"
+          git commit -S -m "ci(backstage): point image at ghcr + bump to ${TAG}"
           git push origin "${BRANCH}"
-          # Open the bump PR only — do NOT auto-merge. The gitops main ruleset requires verified
-          # signatures (needs --squash, not --merge) AND helm-values/ is CODEOWNERS-gated, so an
-          # unattended `gh pr merge` fails (this was the exit-123). A human reviews + squash-merges
-          # it through the gate (the prod config change deliberately gets eyes).
+          # Open the bump PR only — do NOT auto-merge. helm-values/ is CODEOWNERS-gated and main requires
+          # verified signatures (squash) → a human reviews + squash-merges it through the gate.
           gh pr create \
             --repo "${{ env.GITOPS_REPO }}" \
             --title "ci(backstage): bump image to ${TAG}" \
             --base main \
             --head "${BRANCH}" \
-            --body "Automated image tag bump from CI run ${{ github.run_id }}. \`helm-values/\` is CODEOWNERS-gated → review + **squash**-merge (the prod gate)."
+            --body "Automated image bump from CI run ${{ github.run_id }} (now ghcr.io). \`helm-values/\` is CODEOWNERS-gated → review + **squash**-merge."
