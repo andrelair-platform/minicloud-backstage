@@ -59,10 +59,9 @@ backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 
 // permission plugin
 backend.add(import('@backstage/plugin-permission-backend'));
-// See https://backstage.io/docs/permissions/getting-started for how to create your own permission policy
-backend.add(
-  import('@backstage/plugin-permission-backend-module-allow-all-policy'),
-);
+// Minicloud RBAC policy (IDP #5) — Admin / Developer / read-only by group + a config admin allow-list.
+// Replaces the default allow-all. SAFE DEFAULT: allows all until permission.rbac.adminRefs is set.
+backend.add(import('./modules/rbacPolicy'));
 
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
@@ -81,8 +80,9 @@ backend.add(import('@backstage/plugin-kubernetes-backend'));
 // argocd plugin
 backend.add(import('@roadiehq/backstage-plugin-argo-cd-backend'));
 
-// oidc auth provider (used for Authentik SSO in production)
-backend.add(import('@backstage/plugin-auth-backend-module-oidc-provider'));
+// oidc auth provider (Authentik SSO) — custom registration that maps the Authentik `groups` claim
+// into the identity's ownership refs (for the RBAC policy). Replaces the stock oidc-provider module.
+backend.add(import('./modules/oidcGroupsProvider'));
 
 // notifications and signals plugins
 backend.add(import('@backstage/plugin-notifications-backend'));
